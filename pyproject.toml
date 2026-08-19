@@ -1,0 +1,8 @@
+[project]
+name = "loop-hooks"
+version = "0.1.0"
+description = "Claude Code の品質ループ用 Hooks(ターン終了時の検証ゲート)"
+requires-python = ">=3.10"
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.8"]
