@@ -1,0 +1,11 @@
+{
+  "name": "loop-hooks",
+  "owner": {"name": "wwwcojp"},
+  "plugins": [
+    {
+      "name": "loop-hooks",
+      "source": "./",
+      "description": "ターン終了時の検証ゲート"
+    }
+  ]
+}
