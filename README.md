@@ -52,7 +52,7 @@ Python 環境構築は不要。
   "gate": {
     "command": "~/.local/bin/bun run verify quick",
     "timeout_sec": 600,
-    "watch": ["*.ts", "*.tsx", "package.json", "tsconfig*.json"],
+    "watch": ["*.ts", "*.tsx", "package.json", "*tsconfig*.json"],
     "ignore": [".loop/*", "node_modules/*", "*.md"]
   }
 }

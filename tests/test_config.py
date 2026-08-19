@@ -27,7 +27,7 @@ def test_正常な設定は既定値とマージされる(tmp_path):
     cfg = config.load(cwd)
     assert cfg["gate"]["command"] == "echo ok"
     assert cfg["gate"]["timeout_sec"] == 600
-    assert cfg["gate"]["watch"] == ["*.ts", "*.tsx", "package.json", "tsconfig*.json"]
+    assert cfg["gate"]["watch"] == ["*.ts", "*.tsx", "package.json", "*tsconfig*.json"]
 
 
 def test_明示した値は既定値を上書きする(tmp_path):
@@ -45,5 +45,35 @@ def test_壊れたJSONは_errorになる(tmp_path):
 
 def test_commandが無い設定は_errorになる(tmp_path):
     cwd = write(tmp_path, {"gate": {"timeout_sec": 30}})
+    cfg = config.load(cwd)
+    assert "_error" in cfg
+
+
+def test_ignoreが文字列だと_errorになる(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": "echo ok", "ignore": "*.md"}})
+    cfg = config.load(cwd)
+    assert "_error" in cfg
+
+
+def test_timeout_secが文字列だと_errorになる(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": "echo ok", "timeout_sec": "600"}})
+    cfg = config.load(cwd)
+    assert "_error" in cfg
+
+
+def test_timeout_secがboolだと_errorになる(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": "echo ok", "timeout_sec": True}})
+    cfg = config.load(cwd)
+    assert "_error" in cfg
+
+
+def test_timeout_secが1未満だと_errorになる(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": "echo ok", "timeout_sec": 0}})
+    cfg = config.load(cwd)
+    assert "_error" in cfg
+
+
+def test_watchに非文字列要素があると_errorになる(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": "echo ok", "watch": ["*.ts", 1]}})
     cfg = config.load(cwd)
     assert "_error" in cfg

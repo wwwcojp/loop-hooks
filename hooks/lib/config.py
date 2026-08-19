@@ -5,7 +5,7 @@ from pathlib import Path
 CONFIG_NAME = ".loop-hooks.json"
 GATE_DEFAULTS = {
     "timeout_sec": 600,
-    "watch": ["*.ts", "*.tsx", "package.json", "tsconfig*.json"],
+    "watch": ["*.ts", "*.tsx", "package.json", "*tsconfig*.json"],
     "ignore": [".loop/*", "node_modules/*", "*.md"],
 }
 
@@ -27,4 +27,14 @@ def load(cwd: str | None) -> dict | None:
         return {"_error": f"{CONFIG_NAME} に gate.command (文字列) が無い"}
     merged = dict(GATE_DEFAULTS)
     merged.update(gate)
+
+    timeout_sec = merged.get("timeout_sec")
+    if isinstance(timeout_sec, bool) or not isinstance(timeout_sec, int) or timeout_sec < 1:
+        return {"_error": f"{CONFIG_NAME} の gate.timeout_sec は1以上の整数である必要がある"}
+
+    for key in ("watch", "ignore"):
+        value = merged.get(key)
+        if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+            return {"_error": f"{CONFIG_NAME} の gate.{key} は文字列のリストである必要がある"}
+
     return {"gate": merged}
