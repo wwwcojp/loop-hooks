@@ -64,3 +64,9 @@ def test_repo外への書き込みは無視する(tmp_path):
     mark_dirty.handle({"tool_name": "Edit", "cwd": str(tmp_path),
                        "tool_input": {"file_path": "/etc/hosts.ts"}})
     assert state.is_dirty(str(tmp_path)) is False
+
+
+def test_設定が壊れているrepoでは何もしない(tmp_path):
+    (tmp_path / ".loop-hooks.json").write_text("{broken", encoding="utf-8")
+    mark_dirty.handle(make_event(tmp_path, "server/main.ts"))
+    assert not (tmp_path / ".loop").exists()
