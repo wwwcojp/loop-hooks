@@ -19,11 +19,11 @@ OUTPUT_TAIL_CHARS = 2000
 
 
 def run_gate(cmd: str, cwd: str, timeout: int) -> tuple[bool, str]:
-    argv = shlex.split(cmd)
-    argv[0] = os.path.expanduser(argv[0])
     try:
+        argv = shlex.split(cmd)
+        argv[0] = os.path.expanduser(argv[0])
         r = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, timeout=timeout)
-    except (subprocess.TimeoutExpired, OSError) as exc:
+    except (ValueError, IndexError, subprocess.TimeoutExpired, OSError) as exc:
         return False, f"$ {cmd}\n実行できませんでした: {exc}"
     if r.returncode == 0:
         return True, ""

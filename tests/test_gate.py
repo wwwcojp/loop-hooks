@@ -72,3 +72,15 @@ def test_実行できないコマンドはblockになる(tmp_path):
     event = setup_repo(tmp_path, "/no/such/binary-xyz")
     out = gate.handle(event)
     assert out["decision"] == "block"
+
+
+def test_空のコマンドはblockになる(tmp_path):
+    event = setup_repo(tmp_path, "")
+    out = gate.handle(event)
+    assert out["decision"] == "block"
+
+
+def test_閉じない引用符のコマンドはblockになる(tmp_path):
+    event = setup_repo(tmp_path, '"broken')
+    out = gate.handle(event)
+    assert out["decision"] == "block"
