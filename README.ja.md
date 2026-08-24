@@ -27,7 +27,8 @@ loop-hooks はゲートを変更駆動にする。Stop 時に watch 対象のフ
 **Stop** フック 1 つ、`hooks/stop/gate.py`：
 
 1. セッションの `cwd` からリポジトリルートを解決する(`git rev-parse --show-toplevel`)。
-   サブディレクトリで起動していても効く。
+   サブディレクトリで起動していても効く。git worktree ではそのworktree自身のルートに
+   解決されるので、worktreeごとに独立してゲートが掛かり、記録も別々になる。
 2. そのルートの `.loop-hooks.json` を読む。**設定ファイルが無ければ何もしない**
    (オプトイン)。
 3. 現在のフィンガープリントを計算する。`HEAD` の sha と、`HEAD` と一致しないパスのうち

@@ -30,7 +30,8 @@ fixes a file costs you nothing.
 A single **Stop** hook, `hooks/stop/gate.py`:
 
 1. Resolves the repository root from the session's `cwd` (`git rev-parse --show-toplevel`),
-   so it works from any subdirectory.
+   so it works from any subdirectory. In a git worktree this resolves to the
+   worktree's own root, so each worktree is gated and recorded independently.
 2. Loads `.loop-hooks.json` from that root. **No config file, no gate** — the
    plugin is inert in repositories that haven't opted in.
 3. Computes the current fingerprint: the `HEAD` sha, plus the content hash of

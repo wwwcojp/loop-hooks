@@ -227,3 +227,26 @@ def test_タイムアウトで孫プロセスも止まる(tmp_path):
     assert gate.handle(event)["decision"] == "block"
     time.sleep(4)
     assert not marker.exists()
+
+
+# --- worktree ---
+
+def test_worktreeは本体と独立に検証状態を持つ(tmp_path):
+    """worktreeでは cwd がそのworktreeのルートになる。記録もそこに置かれる。"""
+    main = tmp_path / "main"
+    main.mkdir()
+    event = setup_repo(main, "true")
+    git(main, "add", "-A")
+    git(main, "commit", "-qm", "init")
+    assert gate.handle(event) is None
+    main_verified = state.read_verified(str(main))
+    assert main_verified is not None
+
+    wt = tmp_path / "wt"
+    git(main, "worktree", "add", "-q", str(wt), "-b", "feature")
+    assert state.read_verified(str(wt)) is None  # 記録は引き継がない
+    (wt / "main.ts").write_text("worktree edit\n", encoding="utf-8")
+    assert gate.handle({"cwd": str(wt), "stop_hook_active": False}) is None
+
+    assert state.read_verified(str(wt)) != main_verified
+    assert state.read_verified(str(main)) == main_verified  # 本体の記録は不変
