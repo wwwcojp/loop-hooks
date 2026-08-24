@@ -1,6 +1,6 @@
 {
   "name": "loop-hooks",
   "version": "0.1.0",
-  "description": "ターン終了時の検証ゲート(per-repo設定の verify コマンドを強制する)",
+  "description": "Change-gated verification gate at end of turn (runs your per-repo verify command)",
   "author": {"name": "wwwcojp"}
 }

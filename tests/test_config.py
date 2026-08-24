@@ -77,3 +77,18 @@ def test_watchに非文字列要素があると_errorになる(tmp_path):
     cwd = write(tmp_path, {"gate": {"command": "echo ok", "watch": ["*.ts", 1]}})
     cfg = config.load(cwd)
     assert "_error" in cfg
+
+
+def test_空のcommandは_errorになる(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": ""}})
+    assert "_error" in config.load(cwd)
+
+
+def test_空白のみのcommandは_errorになる(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": "   "}})
+    assert "_error" in config.load(cwd)
+
+
+def test_エラーメッセージは英語(tmp_path):
+    cwd = write(tmp_path, {"gate": {"timeout_sec": 30}})
+    assert config.load(cwd)["_error"].isascii()

@@ -1,30 +1,61 @@
 # loop-hooks
 
-Claude Code 用の [Hooks](https://docs.claude.com/en/docs/claude-code/hooks) プラグイン。
-ターンの終了(Stop)で、リポジトリごとに指定した検証コマンド(`verify` など)を強制する
-「品質ループ」を実現する。
+A [Claude Code](https://docs.claude.com/en/docs/claude-code/hooks) hooks plugin
+that enforces your repository's verification command (`verify`, `test`, `lint`,
+whatever you use) when a turn ends — **but only when something has actually
+changed since the last time the gate was green.**
 
-## 何をするか
+日本語版: [README.ja.md](README.ja.md)
 
-- **PostToolUse (`Edit|Write`)** — `hooks/post_tool_use/mark_dirty.py` が発火する。
-  編集されたファイルが `.loop-hooks.json` の `watch` パターンに一致し `ignore` に
-  一致しなければ、そのリポジトリを "dirty" として `.loop/state.json` に記録する。
-  検証はここでは走らせない。
-- **Stop** — `hooks/stop/gate.py` が発火する。dirty なリポジトリなら
-  `.loop-hooks.json` の `gate.command` を実行する。
-  - 成功したら dirty を消して(次の Stop では何もしない)、そのままターンを終える。
-  - 失敗したら `decision: block` を返し、ターンを終わらせない(直して終了させる)。
-  - block してもなお失敗する場合(`stop_hook_active` が真の再入時)は、
-    閉じ込めずに警告(`systemMessage`)だけ出して通す。dirty は残るので、
-    次のターンの終了時に再びゲートが掛かる。
+## Why
 
-`.loop-hooks.json` が無いリポジトリではこのプラグインは何もしない(オプトイン)。
+"Run a Stop hook that runs your tests" is a well-known Claude Code recipe. The
+problem with the usual version is that it runs *every* turn: ask a question, get
+an answer, wait 60 seconds for the test suite. People turn it off.
 
-## 導入方法
+loop-hooks makes the gate change-driven. On `Stop` it computes a fingerprint of
+the files you told it to watch and compares it with the fingerprint recorded the
+last time the gate passed. Identical? The turn ends immediately, nothing runs.
+Different? Your command runs, and a failure keeps the turn open until it's fixed.
 
-1. marketplace を登録し、プラグインを有効化する(`~/.claude/settings.json`
-   の `extraKnownMarketplaces` / `enabledPlugins` に追記。手元でのローカル
-   インストールなら次のように directory ソースを指す):
+Because the fingerprint is computed from **git's view of the working tree**, not
+from which tools Claude happened to call, it catches every edit path: `Edit` and
+`Write`, `sed`/heredoc edits made through `Bash`, files written by subagents,
+`git checkout`, formatters, code generators, lockfile churn. Revert an edit and
+the fingerprint returns to its previous value, so a turn that breaks and then
+fixes a file costs you nothing.
+
+## What it does
+
+A single **Stop** hook, `hooks/stop/gate.py`:
+
+1. Resolves the repository root from the session's `cwd` (`git rev-parse --show-toplevel`),
+   so it works from any subdirectory.
+2. Loads `.loop-hooks.json` from that root. **No config file, no gate** — the
+   plugin is inert in repositories that haven't opted in.
+3. Computes the current fingerprint: the `HEAD` sha, plus the content hash of
+   every path that differs from `HEAD` and matches `watch` without matching
+   `ignore`.
+4. If it equals the recorded fingerprint, returns immediately.
+5. Otherwise runs `gate.command`. On success it records the fingerprint *taken
+   after the command ran*, so a command that rewrites files (a formatter, say)
+   doesn't trigger an endless re-run. On failure it returns
+   `decision: "block"` with the tail of the output, so Claude must fix it.
+6. If the gate fails again on re-entry (`stop_hook_active` is true), it does not
+   trap the agent: it emits a `systemMessage` warning and lets the turn end. The
+   fingerprint is left unrecorded, so the gate fires again next turn.
+
+## Requirements
+
+- [`uv`](https://docs.astral.sh/uv/) on `PATH`. Each hook is a self-contained
+  `uv run --script`, so there is no Python environment to set up.
+- **git.** Change detection is built on it. In a directory that isn't a git
+  repository the gate stays disabled and emits a warning.
+
+## Install
+
+1. Register the marketplace and enable the plugin in `~/.claude/settings.json`
+   (a local checkout uses a `directory` source):
 
    ```json
    "extraKnownMarketplaces": {
@@ -37,20 +68,16 @@ Claude Code 用の [Hooks](https://docs.claude.com/en/docs/claude-code/hooks) �
    }
    ```
 
-2. ゲートを掛けたいリポジトリのルートに `.loop-hooks.json` を置く(下記スキーマ)。
+2. Drop a `.loop-hooks.json` in the root of each repository you want gated.
 
-このプラグインの唯一の実行時要件は [`uv`](https://docs.astral.sh/uv/) が `PATH`
-にあること。各フックは `uv run --script` の自己完結スクリプトなので、追加の
-Python 環境構築は不要。
+## Configuration
 
-## 設定・状態・出力の契約
-
-**`.loop-hooks.json`**(ゲート対象リポジトリのルートに置く):
+`.loop-hooks.json`, at the repository root:
 
 ```json
 {
   "gate": {
-    "command": "~/.local/bin/bun run verify quick",
+    "command": "bun run verify quick",
     "timeout_sec": 600,
     "watch": ["*.ts", "*.tsx", "package.json", "*tsconfig*.json"],
     "ignore": [".loop/*", "node_modules/*", "*.md"]
@@ -58,41 +85,70 @@ Python 環境構築は不要。
 }
 ```
 
-- `gate.command` は必須(文字列)。それ以外(`timeout_sec` / `watch` / `ignore`)
-  は省略可で、上記の値が既定になる。
-- パターンは `fnmatch`(**`*` は `/` もまたぐ**。`docs/*` は `docs/a/b.md` にも
-  一致する)。リポジトリ相対パスに対して照合する。`ignore` は `watch` より優先。
-- `.loop-hooks.json` が無いリポジトリでは無効(dirty を記録しない/ゲートも掛けない)。
-  ファイルはあるが `gate.command` が無い・JSON が壊れているなど不正な場合は、
-  Stop 側が `systemMessage` で警告してゲートは無効のまま進める。
+| Field | Required | Default | Notes |
+| --- | --- | --- | --- |
+| `gate.command` | yes | — | Run through a shell, so `&&`, pipes, `$VARS`, globs and `~` all work. |
+| `gate.timeout_sec` | no | `600` | Integer ≥ 1. On timeout the whole process group is killed, so no orphaned test runners. |
+| `gate.watch` | no | see above | Paths that make the gate fire. |
+| `gate.ignore` | no | see above | Wins over `watch`. |
 
-**状態ファイル** `.loop/state.json`(ゲート対象リポジトリ内。セッションを跨いで残る):
+Patterns are `fnmatch` against repository-relative paths. Note that **`*` crosses
+`/`**: `docs/*` also matches `docs/a/b.md`.
+
+If the file is present but invalid (bad JSON, missing or empty `gate.command`,
+wrong types), the gate stays disabled and the Stop hook emits a `systemMessage`
+explaining why rather than blocking the turn.
+
+## State
+
+`.loop/state.json`, inside the gated repository, surviving across sessions:
 
 ```json
-{"dirty": true}
+{"verified": "9f2c…"}
 ```
 
-**evidence** `.loop/evidence.jsonl`(verify ランナー側が1実行1行で追記する。このプラグイン自体は書かない):
+The fingerprint recorded the last time the gate passed. Delete the file to force
+the gate to run on the next turn. Add `.loop/` to your `.gitignore`.
+
+## Evidence (a convention, not a feature)
+
+`.loop/evidence.jsonl` is where a verify runner is expected to append one line
+per run. **This plugin neither writes nor reads it** — it is documented here so
+that a runner and a gate agree on a shape:
 
 ```json
 {"ts":"2026-08-19T12:34:56.789Z","rev":"64db08b+dirty","stage":"quick","pass":false,"checks":[{"name":"typecheck","ok":true,"ms":4120},{"name":"unit","ok":false,"ms":9876}]}
 ```
 
-## 手動スモーク
+## Manual smoke test
 
 ```bash
-cd /tmp && mkdir -p loop-smoke && cd loop-smoke
-echo '{"gate": {"command": "true"}}' > .loop-hooks.json
-echo '{"tool_name":"Edit","cwd":"'$PWD'","tool_input":{"file_path":"'$PWD'/a.ts"}}' \
-  | uv run ~/loop-hooks/hooks/post_tool_use/mark_dirty.py
-cat .loop/state.json        # {"dirty": true}
-echo '{"cwd":"'$PWD'","stop_hook_active":false}' \
-  | uv run ~/loop-hooks/hooks/stop/gate.py
-cat .loop/state.json        # {"dirty": false}
+cd /tmp && rm -rf loop-smoke && mkdir loop-smoke && cd loop-smoke
+git init -q && git commit -q --allow-empty -m init
+echo '{"gate": {"command": "true", "watch": ["*.ts"]}}' > .loop-hooks.json
+echo 'export const a = 1' > a.ts
+
+echo '{"cwd":"'$PWD'","stop_hook_active":false}' | uv run ~/loop-hooks/hooks/stop/gate.py
+cat .loop/state.json    # {"verified": "…"}  gate ran and passed
+
+echo '{"cwd":"'$PWD'","stop_hook_active":false}' | uv run ~/loop-hooks/hooks/stop/gate.py
+                        # no output: nothing changed, gate skipped
 ```
 
-## テスト
+## Tests
 
 ```bash
-cd ~/loop-hooks && uv run pytest -v
+uv run pytest -v
 ```
+
+## Limitations
+
+- Requires a git repository.
+- Covers the main agent's `Stop` only. `SubagentStop` and `TeammateIdle` are not
+  gated yet.
+- One recorded fingerprint per repository, so concurrent sessions in the same
+  worktree share it.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

@@ -5,7 +5,7 @@
     {
       "name": "loop-hooks",
       "source": "./",
-      "description": "ターン終了時の検証ゲート"
+      "description": "Change-gated verification gate at end of turn"
     }
   ]
 }

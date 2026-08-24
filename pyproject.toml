@@ -1,7 +1,7 @@
 [project]
 name = "loop-hooks"
 version = "0.1.0"
-description = "Claude Code の品質ループ用 Hooks(ターン終了時の検証ゲート)"
+description = "Change-gated verification for Claude Code: run your verify command at end of turn, but only when something actually changed"
 requires-python = ">=3.10"
 
 [dependency-groups]

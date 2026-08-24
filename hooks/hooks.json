@@ -1,13 +1,5 @@
 {
   "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {"type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/post_tool_use/mark_dirty.py\"", "timeout": 10}
-        ]
-      }
-    ],
     "Stop": [
       {
         "hooks": [
