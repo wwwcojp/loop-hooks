@@ -3,7 +3,9 @@ import json
 from pathlib import Path
 
 CONFIG_NAME = ".loop-hooks.json"
+EVENTS = ("stop", "subagent_stop", "teammate_idle")
 GATE_DEFAULTS = {
+    "on": list(EVENTS),
     "timeout_sec": 600,
     "watch": ["*.ts", "*.tsx", "package.json", "*tsconfig*.json"],
     "ignore": [".loop/*", "node_modules/*", "*.md"],
@@ -38,5 +40,10 @@ def load(root: str | None) -> dict | None:
         value = merged.get(key)
         if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
             return {"_error": f"{CONFIG_NAME}: gate.{key} must be a list of strings"}
+
+    on = merged.get("on")
+    if not isinstance(on, list) or not on or not all(v in EVENTS for v in on):
+        return {"_error": f"{CONFIG_NAME}: gate.on must be a non-empty list of "
+                          f"{', '.join(EVENTS)}"}
 
     return {"gate": merged}

@@ -3,7 +3,21 @@
     "Stop": [
       {
         "hooks": [
-          {"type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/stop/gate.py\"", "timeout": 660}
+          {"type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.py\"", "timeout": 660}
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {"type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.py\"", "timeout": 660}
+        ]
+      }
+    ],
+    "TeammateIdle": [
+      {
+        "hooks": [
+          {"type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.py\"", "timeout": 660}
         ]
       }
     ]

@@ -92,3 +92,28 @@ def test_空白のみのcommandは_errorになる(tmp_path):
 def test_エラーメッセージは英語(tmp_path):
     cwd = write(tmp_path, {"gate": {"timeout_sec": 30}})
     assert config.load(cwd)["_error"].isascii()
+
+
+def test_onの既定は3イベントすべて(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": "echo ok"}})
+    assert config.load(cwd)["gate"]["on"] == ["stop", "subagent_stop", "teammate_idle"]
+
+
+def test_onは明示して絞れる(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": "echo ok", "on": ["stop"]}})
+    assert config.load(cwd)["gate"]["on"] == ["stop"]
+
+
+def test_未知のonは_errorになる(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": "echo ok", "on": ["stop", "on_commit"]}})
+    assert "_error" in config.load(cwd)
+
+
+def test_onが文字列だと_errorになる(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": "echo ok", "on": "stop"}})
+    assert "_error" in config.load(cwd)
+
+
+def test_onが空リストだと_errorになる(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": "echo ok", "on": []}})
+    assert "_error" in config.load(cwd)

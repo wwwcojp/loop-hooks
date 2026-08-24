@@ -27,7 +27,9 @@ fixes a file costs you nothing.
 
 ## What it does
 
-A single **Stop** hook, `hooks/stop/gate.py`:
+One script, `hooks/gate.py`, runs on the three events where an agent is about
+to stop working — **Stop**, **SubagentStop** and **TeammateIdle** (pick which
+ones with `gate.on`):
 
 1. Resolves the repository root from the session's `cwd` (`git rev-parse --show-toplevel`),
    so it works from any subdirectory. In a git worktree this resolves to the
@@ -41,10 +43,15 @@ A single **Stop** hook, `hooks/stop/gate.py`:
 5. Otherwise runs `gate.command`. On success it records the fingerprint *taken
    after the command ran*, so a command that rewrites files (a formatter, say)
    doesn't trigger an endless re-run. On failure it returns
-   `decision: "block"` with the tail of the output, so Claude must fix it.
-6. If the gate fails again on re-entry (`stop_hook_active` is true), it does not
-   trap the agent: it emits a `systemMessage` warning and lets the turn end. The
-   fingerprint is left unrecorded, so the gate fires again next turn.
+   the tail of the output as feedback, so the agent has to fix it before it can
+   finish. `Stop` and `SubagentStop` get it as `hookSpecificOutput.additionalContext`;
+   `TeammateIdle` uses a different protocol, so it gets exit code 2 with the same
+   text on stderr.
+6. It never traps an agent. On re-entry (`stop_hook_active`) a second failure
+   becomes a `systemMessage` warning and the turn ends. `TeammateIdle` carries no
+   re-entry flag, so instead the gate refuses to block the same fingerprint twice
+   in a row. Either way the fingerprint stays unrecorded, so the gate fires again
+   on the next change.
 
 ## Requirements
 
@@ -89,6 +96,7 @@ A single **Stop** hook, `hooks/stop/gate.py`:
 | Field | Required | Default | Notes |
 | --- | --- | --- | --- |
 | `gate.command` | yes | — | Run through a shell, so `&&`, pipes, `$VARS`, globs and `~` all work. |
+| `gate.on` | no | all three | Which events to gate: `stop`, `subagent_stop`, `teammate_idle`. |
 | `gate.timeout_sec` | no | `600` | Integer ≥ 1. On timeout the whole process group is killed, so no orphaned test runners. |
 | `gate.watch` | no | see above | Paths that make the gate fire. |
 | `gate.ignore` | no | see above | Wins over `watch`. |
@@ -102,14 +110,22 @@ explaining why rather than blocking the turn.
 
 ## State
 
-`.loop/state.json`, inside the gated repository, surviving across sessions:
+**loop-hooks never writes inside your repository**, so there is nothing to add to
+`.gitignore`. State lives in the plugin's persistent data directory, or under the
+XDG cache when that isn't set (running the script by hand, for instance):
 
-```json
-{"verified": "9f2c…"}
+```
+$CLAUDE_PLUGIN_DATA/state/<sha16-of-repo-path>.json
+~/.cache/loop-hooks/state/<sha16-of-repo-path>.json
 ```
 
-The fingerprint recorded the last time the gate passed. Delete the file to force
-the gate to run on the next turn. Add `.loop/` to your `.gitignore`.
+```json
+{"root": "/home/you/my-project", "verified": "9f2c…", "blocked": ""}
+```
+
+`verified` is the fingerprint recorded the last time the gate passed; `blocked` is
+the re-entry guard for `TeammateIdle`. Delete the file to force the gate to run on
+the next turn.
 
 ## Evidence (a convention, not a feature)
 
@@ -129,10 +145,10 @@ git init -q && git commit -q --allow-empty -m init
 echo '{"gate": {"command": "true", "watch": ["*.ts"]}}' > .loop-hooks.json
 echo 'export const a = 1' > a.ts
 
-echo '{"cwd":"'$PWD'","stop_hook_active":false}' | uv run ~/loop-hooks/hooks/stop/gate.py
-cat .loop/state.json    # {"verified": "…"}  gate ran and passed
+echo '{"cwd":"'$PWD'","stop_hook_active":false}' | uv run ~/loop-hooks/hooks/gate.py
+                        # no output: the gate ran and passed
 
-echo '{"cwd":"'$PWD'","stop_hook_active":false}' | uv run ~/loop-hooks/hooks/stop/gate.py
+echo '{"cwd":"'$PWD'","stop_hook_active":false}' | uv run ~/loop-hooks/hooks/gate.py
                         # no output: nothing changed, gate skipped
 ```
 
@@ -145,10 +161,10 @@ uv run pytest -v
 ## Limitations
 
 - Requires a git repository.
-- Covers the main agent's `Stop` only. `SubagentStop` and `TeammateIdle` are not
-  gated yet.
 - One recorded fingerprint per repository, so concurrent sessions in the same
   worktree share it.
+- `hookSpecificOutput.additionalContext` on `Stop` needs a recent Claude Code; on
+  older versions the feedback is ignored and the turn ends unverified.
 
 ## License
 

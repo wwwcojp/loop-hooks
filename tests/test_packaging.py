@@ -5,9 +5,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def test_hooks_jsonはStopフックだけを登録する():
+def test_hooks_jsonは3つのターン終了イベントを登録する():
     data = json.loads((ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
-    assert set(data["hooks"]) == {"Stop"}
+    assert set(data["hooks"]) == {"Stop", "SubagentStop", "TeammateIdle"}
 
 
 def test_hooks_jsonのコマンドが実在するスクリプトを指す():
@@ -42,6 +42,6 @@ def test_英語READMEが日本語版へ導線を持つ():
 def test_pyprojectとplugin_jsonのバージョンが一致する():
     import re
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    declared = re.search(r'^version = "([^"]+)"', pyproject, re.M).group(1)
+    declared = re.search(r'^version = "([^"]+)"', pyproject, re.MULTILINE).group(1)
     plugin = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
     assert plugin["version"] == declared

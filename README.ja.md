@@ -24,7 +24,9 @@ loop-hooks はゲートを変更駆動にする。Stop 時に watch 対象のフ
 
 ## 何をするか
 
-**Stop** フック 1 つ、`hooks/stop/gate.py`：
+スクリプト 1 つ `hooks/gate.py` が、エージェントが手を止めようとする3つの
+イベント — **Stop** / **SubagentStop** / **TeammateIdle** — で走る
+(`gate.on` でどれを掛けるか選べる)：
 
 1. セッションの `cwd` からリポジトリルートを解決する(`git rev-parse --show-toplevel`)。
    サブディレクトリで起動していても効く。git worktree ではそのworktree自身のルートに
@@ -36,11 +38,14 @@ loop-hooks はゲートを変更駆動にする。Stop 時に watch 対象のフ
 4. 記録済みの値と一致すれば、そのまま何もせず終える。
 5. 違えば `gate.command` を実行する。成功したら **コマンド実行後に取り直した**
    フィンガープリントを記録する(フォーマッタ等がファイルを書き換えても再実行が
-   繰り返されないようにするため)。失敗したら出力の末尾を添えて `decision: "block"`
-   を返し、修復するまでターンを終わらせない。
-6. 再入時(`stop_hook_active` が真)にまた失敗した場合は、閉じ込めずに
-   `systemMessage` の警告だけ出して通す。記録は更新しないので、次のターンの終了時に
-   再びゲートが掛かる。
+   繰り返されないようにするため)。失敗したら出力の末尾をフィードバックとして返し、
+   修復するまで終わらせない。`Stop` と `SubagentStop` は
+   `hookSpecificOutput.additionalContext`、`TeammateIdle` は形式が違うので
+   終了コード2と stderr で同じ文面を返す。
+6. エージェントを閉じ込めない。再入時(`stop_hook_active` が真)の2度目の失敗は
+   `systemMessage` の警告にして通す。`TeammateIdle` には再入フラグが無いため、
+   代わりに同じフィンガープリントを続けて2度ブロックしない。いずれの場合も記録は
+   更新しないので、次に変化があれば再びゲートが掛かる。
 
 ## 動作要件
 
@@ -85,6 +90,7 @@ loop-hooks はゲートを変更駆動にする。Stop 時に watch 対象のフ
 | 項目 | 必須 | 既定値 | 備考 |
 | --- | --- | --- | --- |
 | `gate.command` | はい | — | シェル経由で実行する。`&&`、パイプ、`$VAR`、glob、`~` が使える。 |
+| `gate.on` | いいえ | 3つとも | ゲートするイベント: `stop` / `subagent_stop` / `teammate_idle`。 |
 | `gate.timeout_sec` | いいえ | `600` | 1以上の整数。タイムアウト時はプロセスグループごと落とすので、テストランナーが孤児として残らない。 |
 | `gate.watch` | いいえ | 上記 | ゲートを発火させるパス。 |
 | `gate.ignore` | いいえ | 上記 | `watch` より優先。 |
@@ -97,14 +103,21 @@ loop-hooks はゲートを変更駆動にする。Stop 時に watch 対象のフ
 
 ## 状態ファイル
 
-`.loop/state.json`(ゲート対象リポジトリ内。セッションを跨いで残る):
+**loop-hooks は利用者のリポジトリに一切書かない**ので、`.gitignore` に追記する
+必要はない。状態はプラグインの永続データ領域、それが無い環境(手動実行など)では
+XDG のキャッシュ配下に置く:
 
-```json
-{"verified": "9f2c…"}
+```
+$CLAUDE_PLUGIN_DATA/state/<リポジトリパスのsha16>.json
+~/.cache/loop-hooks/state/<リポジトリパスのsha16>.json
 ```
 
-最後にゲートを通った時点のフィンガープリント。削除すれば次のターンで必ずゲートが走る。
-`.loop/` は `.gitignore` に入れておくこと。
+```json
+{"root": "/home/you/my-project", "verified": "9f2c…", "blocked": ""}
+```
+
+`verified` は最後にゲートを通った時点のフィンガープリント。`blocked` は
+`TeammateIdle` 用の再入ガード。削除すれば次のターンで必ずゲートが走る。
 
 ## evidence(機能ではなく取り決め)
 
@@ -123,10 +136,10 @@ git init -q && git commit -q --allow-empty -m init
 echo '{"gate": {"command": "true", "watch": ["*.ts"]}}' > .loop-hooks.json
 echo 'export const a = 1' > a.ts
 
-echo '{"cwd":"'$PWD'","stop_hook_active":false}' | uv run ~/loop-hooks/hooks/stop/gate.py
-cat .loop/state.json    # {"verified": "…"}  ゲートが走って通った
+echo '{"cwd":"'$PWD'","stop_hook_active":false}' | uv run ~/loop-hooks/hooks/gate.py
+                        # 出力なし: ゲートが走って通った
 
-echo '{"cwd":"'$PWD'","stop_hook_active":false}' | uv run ~/loop-hooks/hooks/stop/gate.py
+echo '{"cwd":"'$PWD'","stop_hook_active":false}' | uv run ~/loop-hooks/hooks/gate.py
                         # 出力なし: 変化が無いのでゲートを飛ばした
 ```
 
@@ -139,9 +152,10 @@ uv run pytest -v
 ## 制限
 
 - git リポジトリであることが必要。
-- メインエージェントの `Stop` のみ。`SubagentStop` と `TeammateIdle` は未対応。
 - フィンガープリントの記録はリポジトリごとに1つなので、同じ worktree で並行する
   複数セッションは記録を共有する。
+- `Stop` の `hookSpecificOutput.additionalContext` は比較的新しい Claude Code を
+  必要とする。古い版ではフィードバックが解釈されず、未検証のままターンが終わる。
 
 ## ライセンス
 
