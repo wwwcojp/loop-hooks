@@ -37,3 +37,11 @@ def test_READMEは英語版と日本語版がある():
 
 def test_英語READMEが日本語版へ導線を持つ():
     assert "README.ja.md" in (ROOT / "README.md").read_text(encoding="utf-8")
+
+
+def test_pyprojectとplugin_jsonのバージョンが一致する():
+    import re
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    declared = re.search(r'^version = "([^"]+)"', pyproject, re.M).group(1)
+    plugin = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    assert plugin["version"] == declared

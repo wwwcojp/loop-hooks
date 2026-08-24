@@ -2,3 +2,6 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .venv/
+
+# Claude Code のセッション副産物(他フックの監査ログ等)
+.claude/
