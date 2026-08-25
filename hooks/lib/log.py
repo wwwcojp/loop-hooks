@@ -44,7 +44,7 @@ def tail(root: str, n: int = 5) -> list[dict]:
     """最新 n 件を新しい順に返す。壊れた行は飛ばす。例外は投げない。"""
     try:
         lines = _path(root).read_text(encoding="utf-8").splitlines()
-    except OSError:
+    except (OSError, ValueError):
         return []
     out: list[dict] = []
     for line in reversed(lines):

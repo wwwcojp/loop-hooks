@@ -58,6 +58,14 @@ def test_壊れた行は飛ばす():
     assert [r["i"] for r in log.tail(REPO)] == [2, 1]
 
 
+def test_不正なUTF8は飛ばす():
+    log.append(REPO, {"i": 1})
+    p = logfile(REPO)
+    p.write_bytes(p.read_bytes() + b"\xff\xfe")
+    result = log.tail(REPO)
+    assert isinstance(result, list)
+
+
 def test_上限を超えたら直近だけ残す():
     for i in range(log.MAX_LINES + 1):
         log.append(REPO, {"i": i})
