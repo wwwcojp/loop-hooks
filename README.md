@@ -1,5 +1,7 @@
 # loop-hooks
 
+[![CI](https://github.com/wwwcojp/loop-hooks/actions/workflows/ci.yml/badge.svg)](https://github.com/wwwcojp/loop-hooks/actions/workflows/ci.yml)
+
 A [Claude Code](https://docs.claude.com/en/docs/claude-code/hooks) hooks plugin
 that enforces your repository's verification command (`verify`, `test`, `lint`,
 whatever you use) when a turn ends — **but only when something has actually
@@ -100,21 +102,39 @@ ones with `gate.on`):
 
 ## Install
 
-1. Register the marketplace and enable the plugin in `~/.claude/settings.json`
-   (a local checkout uses a `directory` source):
+Add the marketplace and install the plugin from inside Claude Code:
 
-   ```json
-   "extraKnownMarketplaces": {
-     "loop-hooks": {
-       "source": {"source": "directory", "path": "/path/to/loop-hooks"}
-     }
-   },
-   "enabledPlugins": {
-     "loop-hooks@loop-hooks": true
-   }
-   ```
+```
+/plugin marketplace add wwwcojp/loop-hooks
+/plugin install loop-hooks@loop-hooks
+```
 
-2. Drop a `.loop-hooks.json` in the root of each repository you want gated.
+Or declare the same thing in `~/.claude/settings.json`:
+
+```json
+"extraKnownMarketplaces": {
+  "loop-hooks": {
+    "source": {"source": "github", "repo": "wwwcojp/loop-hooks"}
+  }
+},
+"enabledPlugins": {
+  "loop-hooks@loop-hooks": true
+}
+```
+
+Then drop a `.loop-hooks.json` in the root of each repository you want gated
+(see [Configuration](#configuration)). Nothing happens in repositories that
+don't have one.
+
+To develop the plugin itself, point the marketplace at a local checkout instead:
+
+```json
+"extraKnownMarketplaces": {
+  "loop-hooks": {
+    "source": {"source": "directory", "path": "/path/to/loop-hooks"}
+  }
+}
+```
 
 ## Configuration
 

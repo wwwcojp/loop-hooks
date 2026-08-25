@@ -1,6 +1,9 @@
 {
   "name": "loop-hooks",
-  "owner": {"name": "wwwcojp"},
+  "owner": {
+    "name": "wwwcojp"
+  },
+  "description": "Change-gated verification for Claude Code: run your repository's verify command when a turn ends, only if something changed",
   "plugins": [
     {
       "name": "loop-hooks",

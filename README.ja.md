@@ -1,5 +1,7 @@
 # loop-hooks
 
+[![CI](https://github.com/wwwcojp/loop-hooks/actions/workflows/ci.yml/badge.svg)](https://github.com/wwwcojp/loop-hooks/actions/workflows/ci.yml)
+
 [Claude Code](https://docs.claude.com/en/docs/claude-code/hooks) 用の Hooks プラグイン。
 ターンの終了(Stop)で、リポジトリごとに指定した検証コマンド(`verify` など)を強制する。
 ただし **前回ゲートを通った時点から実際に変化があったターンだけ** 走らせる。
@@ -91,21 +93,38 @@ loop-hooks は Claude Code におけるこの決定論的な層を、最小の�
 
 ## 導入方法
 
-1. marketplace を登録し、プラグインを有効化する(`~/.claude/settings.json`。
-   手元のローカルインストールなら directory ソースを指す):
+Claude Code の中から marketplace を登録してプラグインをインストールする:
 
-   ```json
-   "extraKnownMarketplaces": {
-     "loop-hooks": {
-       "source": {"source": "directory", "path": "/path/to/loop-hooks"}
-     }
-   },
-   "enabledPlugins": {
-     "loop-hooks@loop-hooks": true
-   }
-   ```
+```
+/plugin marketplace add wwwcojp/loop-hooks
+/plugin install loop-hooks@loop-hooks
+```
 
-2. ゲートを掛けたいリポジトリのルートに `.loop-hooks.json` を置く。
+`~/.claude/settings.json` に書いても同じ:
+
+```json
+"extraKnownMarketplaces": {
+  "loop-hooks": {
+    "source": {"source": "github", "repo": "wwwcojp/loop-hooks"}
+  }
+},
+"enabledPlugins": {
+  "loop-hooks@loop-hooks": true
+}
+```
+
+そのうえで、ゲートを掛けたいリポジトリのルートに `.loop-hooks.json` を置く
+([設定](#設定) を参照)。このファイルが無いリポジトリでは何も起きない。
+
+プラグイン自体を開発する場合は、marketplace をローカルのチェックアウトに向ける:
+
+```json
+"extraKnownMarketplaces": {
+  "loop-hooks": {
+    "source": {"source": "directory", "path": "/path/to/loop-hooks"}
+  }
+}
+```
 
 ## 設定
 
