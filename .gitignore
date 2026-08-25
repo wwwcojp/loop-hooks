@@ -5,3 +5,6 @@ __pycache__/
 
 # Claude Code のセッション副産物(他フックの監査ログ等)
 .claude/
+
+# superpowers の作業領域(台帳・ブリーフ・レビュー資料)
+.superpowers/
