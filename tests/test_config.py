@@ -27,7 +27,7 @@ def test_正常な設定は既定値とマージされる(tmp_path):
     cfg = config.load(cwd)
     assert cfg["gate"]["command"] == "echo ok"
     assert cfg["gate"]["timeout_sec"] == 600
-    assert cfg["gate"]["watch"] == ["*.ts", "*.tsx", "package.json", "*tsconfig*.json"]
+    assert cfg["gate"]["watch"] == ["*"]
 
 
 def test_明示した値は既定値を上書きする(tmp_path):
@@ -192,3 +192,39 @@ def test_gitでないディレクトリでは通知が無い(tmp_path):
     cfg = config.load(cwd)
     assert cfg["gate"]["command"] == "plain"
     assert "_notice" not in cfg
+
+
+# --- 0.3.0: 既定値と _source ---
+
+def test_watchの既定は全ファイル(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": "echo ok"}})
+    assert config.load(cwd)["gate"]["watch"] == ["*"]
+
+
+def test_ignoreの既定に依存ディレクトリとドキュメントが含まれる(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": "echo ok"}})
+    ignore = config.load(cwd)["gate"]["ignore"]
+    for pat in ("node_modules/*", "*/node_modules/*", ".venv/*", "*/.venv/*",
+                "dist/*", "build/*", "target/*", ".claude/*", ".loop/*", "*.md"):
+        assert pat in ignore, pat
+
+
+def test_HEADから読んだ設定は_sourceがHEAD(tmp_path):
+    cwd = repo_with_committed(tmp_path, {"gate": {"command": "committed"}})
+    assert config.load(cwd)["_source"] == "HEAD"
+
+
+def test_作業ツリーから読んだ設定は_sourceがworking_tree(tmp_path):
+    git(tmp_path, "init", "-q")
+    cwd = write(tmp_path, {"gate": {"command": "untracked"}})
+    assert config.load(cwd)["_source"] == "working-tree"
+
+
+def test_gitでないディレクトリの設定も_sourceはworking_tree(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": "plain"}})
+    assert config.load(cwd)["_source"] == "working-tree"
+
+
+def test_設定エラーには_sourceが付かない(tmp_path):
+    cwd = write(tmp_path, {"gate": {"timeout_sec": 30}})
+    assert "_source" not in config.load(cwd)

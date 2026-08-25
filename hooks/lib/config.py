@@ -12,8 +12,11 @@ TIMEOUT_MAX_SEC = 3000
 GATE_DEFAULTS = {
     "on": list(EVENTS),
     "timeout_sec": 600,
-    "watch": ["*.ts", "*.tsx", "package.json", "*tsconfig*.json"],
-    "ignore": [".loop/*", "node_modules/*", "*.md"],
+    # 既定は「全部見張り、明らかな雑音だけ除く」。狭い既定だと、言語が違うリポジトリで
+    # watch を書き忘れたときにゲートが無言で掛からなくなる。
+    "watch": ["*"],
+    "ignore": ["node_modules/*", "*/node_modules/*", ".venv/*", "*/.venv/*",
+               "dist/*", "build/*", "target/*", ".claude/*", ".loop/*", "*.md"],
 }
 
 
@@ -37,8 +40,10 @@ def load(root: str | None) -> dict | None:
             return {"_error": f"cannot read {CONFIG_NAME}: {exc}"}
         working = None
     notice = None
+    source_name = None
     if committed is not None:
         source = committed
+        source_name = "HEAD"
         if working is None:
             notice = (f"{CONFIG_NAME} is missing from the working tree; "
                       "using the committed version")
@@ -47,6 +52,7 @@ def load(root: str | None) -> dict | None:
                       "Commit the change if it is intended")
     elif working is not None:
         source = working
+        source_name = "working-tree"
         if fingerprint.repo_root(root):
             notice = (f"{CONFIG_NAME} is not committed. Commit it so the gate "
                       "cannot be altered by editing the working tree")
@@ -57,8 +63,10 @@ def load(root: str | None) -> dict | None:
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         return {"_error": f"cannot read {CONFIG_NAME}: {exc}"}
     result = _validate(raw)
-    if notice and "_error" not in result:
-        result["_notice"] = notice
+    if "_error" not in result:
+        result["_source"] = source_name
+        if notice:
+            result["_notice"] = notice
     return result
 
 
