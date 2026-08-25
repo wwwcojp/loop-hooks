@@ -15,7 +15,7 @@ import os
 from pathlib import Path
 
 
-def _state_dir() -> Path:
+def state_dir() -> Path:
     base = os.environ.get("CLAUDE_PLUGIN_DATA")
     if base:
         return Path(base) / "state"
@@ -23,9 +23,13 @@ def _state_dir() -> Path:
     return Path(cache) / "loop-hooks" / "state"
 
 
+def key(root: str) -> str:
+    """リポジトリを識別するキー。state と log が同じ置き場を共有するために公開する。"""
+    return hashlib.sha256(os.path.realpath(root).encode("utf-8")).hexdigest()[:16]
+
+
 def _path(root: str) -> Path:
-    key = hashlib.sha256(os.path.realpath(root).encode("utf-8")).hexdigest()[:16]
-    return _state_dir() / f"{key}.json"
+    return state_dir() / f"{key(root)}.json"
 
 
 def _read(root: str) -> dict:
