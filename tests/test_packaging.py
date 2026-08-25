@@ -5,9 +5,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def test_hooks_jsonは3つのターン終了イベントを登録する():
+def test_hooks_jsonはSessionStartと3つのターン終了イベントを登録する():
     data = json.loads((ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
-    assert set(data["hooks"]) == {"Stop", "SubagentStop", "TeammateIdle"}
+    assert set(data["hooks"]) == {"SessionStart", "Stop", "SubagentStop", "TeammateIdle"}
 
 
 def test_hooks_jsonのコマンドが実在するスクリプトを指す():
@@ -52,13 +52,14 @@ def _hook_entries():
     return [h for entries in data["hooks"].values() for e in entries for h in e["hooks"]]
 
 
-def test_hooks_jsonのtimeoutはgate_timeout_secの上限より長い():
+def test_ゲートフックのtimeoutはgate_timeout_secの上限より長い():
     """Claude Code 側が先にフックを殺すと、プロセスグループの後始末が走らない。"""
     import sys
     sys.path.insert(0, str(ROOT / "hooks"))
     from lib import config
     for hook in _hook_entries():
-        assert hook["timeout"] > config.TIMEOUT_MAX_SEC
+        if "gate.py" in hook["command"]:
+            assert hook["timeout"] > config.TIMEOUT_MAX_SEC
 
 
 def test_全フックにstatusMessageがある():
