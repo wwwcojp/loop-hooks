@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import config, fingerprint, hook_io, log, state  # noqa: E402
+from lib import config, fingerprint, hook_io, log, state, status  # noqa: E402
 
 # Claude Code はフック出力を 10,000 字で切る。その内側で、失敗の原因(トレースバック等は
 # 末尾より前に出る)と結果の要約(末尾)の両方が残るように、先頭と末尾を残して中を落とす。
@@ -156,6 +156,11 @@ def _with_notice(out: dict, root: str, notice: str | None) -> dict | None:
 
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--status":
+        # 表示ツールであって判定ツールではない。stdin は読まず、常に exit 0。
+        target = sys.argv[2] if len(sys.argv) > 2 else os.getcwd()
+        print(status.render(status.collect(target)))
+        sys.exit(0)
     out = handle(hook_io.read_event()) or {}
     exit_code = out.pop("_exit_code", 0)
     stderr = out.pop("_stderr", "")

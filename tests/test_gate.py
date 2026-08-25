@@ -529,3 +529,16 @@ def test_設定が無いリポジトリでは記録しない(tmp_path):
     git(tmp_path, "init", "-q")
     gate.handle({"cwd": str(tmp_path)})
     assert log.tail(str(tmp_path)) == []
+
+
+# --- 0.3.0: --status ---
+
+def test_statusはstdinを読まずに状態を表示して0で終わる(tmp_path):
+    setup_repo(tmp_path, "true")
+    script = Path(__file__).resolve().parent.parent / "hooks" / "gate.py"
+    r = subprocess.run([sys.executable, str(script), "--status", str(tmp_path)],
+                       capture_output=True, text=True, stdin=subprocess.DEVNULL)
+    assert r.returncode == 0
+    assert "loop-hooks status" in r.stdout
+    assert "gate will run" in r.stdout
+    assert log.tail(str(tmp_path)) == []  # 表示は記録しない
