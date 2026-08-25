@@ -65,3 +65,11 @@ def test_ゲートフックのtimeoutはgate_timeout_secの上限より長い():
 def test_全フックにstatusMessageがある():
     for hook in _hook_entries():
         assert hook.get("statusMessage"), hook
+
+
+def test_statusスキルが存在しnameがstatus():
+    skill = (ROOT / "skills" / "status" / "SKILL.md").read_text(encoding="utf-8")
+    head = skill.split("---")[1]
+    assert "name: status" in head
+    assert "gate.py\" --status" in skill
+    assert "${CLAUDE_PLUGIN_ROOT}" in skill and "${CLAUDE_PROJECT_DIR}" in skill
