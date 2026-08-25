@@ -15,10 +15,11 @@ import os
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import config, fingerprint, hook_io, state  # noqa: E402
+from lib import config, fingerprint, hook_io, log, state  # noqa: E402
 
 # Claude Code はフック出力を 10,000 字で切る。その内側で、失敗の原因(トレースバック等は
 # 末尾より前に出る)と結果の要約(末尾)の両方が残るように、先頭と末尾を残して中を落とす。
@@ -104,21 +105,29 @@ def handle(event: dict) -> dict | None:
     root = fingerprint.repo_root(cwd)
     cfg = config.load(root or cwd)
     if cfg is None:
-        return None
+        return None  # 設定なし: このリポジトリでは何もしない(記録もしない)
+    rec = {"event": hook_event}
     if "_error" in cfg:
+        log.append(root or cwd, {**rec, "decision": "disabled", "note": cfg["_error"][:80]})
         return {"systemMessage": f"[loop-hooks] gate disabled: {cfg['_error']}"}
     if root is None:
+        log.append(cwd, {**rec, "decision": "disabled", "note": "not a git repository"})
         return {"systemMessage": "[loop-hooks] gate disabled: not a git repository "
                                  f"({cwd}). loop-hooks uses git to detect changes."}
 
     gate_cfg = cfg["gate"]
     if key not in gate_cfg["on"]:
+        log.append(root, {**rec, "decision": "off"})
         return None
     current = fingerprint.compute(root, gate_cfg)
+    rec["fp"] = (current or "")[:12]
     if current == state.read_verified(root):
+        log.append(root, {**rec, "decision": "skipped"})
         return None  # 前回グリーンから何も変わっていない
 
+    started = time.monotonic()
     ok, detail = run_gate(gate_cfg["command"], root, gate_cfg["timeout_sec"])
+    rec.update(decision="ran", ms=int((time.monotonic() - started) * 1000))
     if ok:
         # 検証コマンド自身が書き換えた分も含めて記録する(フォーマッタ等での再実行を防ぐ)
         verified = fingerprint.compute(root, gate_cfg)
@@ -126,8 +135,13 @@ def handle(event: dict) -> dict | None:
             state.write_verified(root, verified)
         state.write_blocked(root, "")  # 直ったのでブロック記録を無効化
         out = {}
+        rec["result"] = "pass"
     else:
         out = _refuse(hook_event, root, current, detail, event)
+        rec["result"] = "warn" if "systemMessage" in out else "fail"
+    if cfg.get("_notice"):
+        rec["note"] = cfg["_notice"][:80]
+    log.append(root, rec)
     return _with_notice(out, root, cfg.get("_notice"))
 
 

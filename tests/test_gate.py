@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
 import gate  # noqa: E402
-from lib import fingerprint, state  # noqa: E402
+from lib import fingerprint, log, state  # noqa: E402
 
 WATCH = ["*.ts"]
 IGNORE = [".loop/*", "*.md"]
@@ -471,3 +471,61 @@ def test_設定をコミットすれば通知は消える(tmp_path):
     git(tmp_path, "add", ".loop-hooks.json")
     git(tmp_path, "commit", "-qm", "config")
     assert gate.handle(event) is None
+
+
+# --- 0.3.0: 判定ログ ---
+
+def last(tmp_path: Path) -> dict:
+    rows = log.tail(str(tmp_path), 1)
+    assert rows, "ログが無い"
+    return rows[0]
+
+
+def test_指紋一致はskippedと記録される(tmp_path):
+    event = setup_repo(tmp_path, "true")
+    mark_verified(tmp_path)
+    gate.handle(event)
+    rec = last(tmp_path)
+    assert rec["event"] == "Stop" and rec["decision"] == "skipped"
+    assert len(rec["fp"]) == 12
+
+
+def test_成功はran_passと所要時間つきで記録される(tmp_path):
+    gate.handle(setup_repo(tmp_path, "true"))
+    rec = last(tmp_path)
+    assert (rec["decision"], rec["result"]) == ("ran", "pass")
+    assert isinstance(rec["ms"], int) and rec["ms"] >= 0
+
+
+def test_失敗はran_failと記録される(tmp_path):
+    gate.handle(setup_repo(tmp_path, "false"))
+    assert (last(tmp_path)["decision"], last(tmp_path)["result"]) == ("ran", "fail")
+
+
+def test_二重ブロック回避で通した回はran_warn(tmp_path):
+    event = setup_repo(tmp_path, "false")
+    gate.handle(event)
+    gate.handle(event)
+    assert last(tmp_path)["result"] == "warn"
+
+
+def test_on対象外はoffと記録される(tmp_path):
+    event = setup_repo(tmp_path, "true")
+    write_config(tmp_path, {"gate": {"command": "true", "watch": WATCH, "ignore": IGNORE,
+                                     "on": ["stop"]}})
+    gate.handle(subagent(event))
+    assert (last(tmp_path)["event"], last(tmp_path)["decision"]) == ("SubagentStop", "off")
+
+
+def test_設定エラーはdisabledと理由つきで記録される(tmp_path):
+    git(tmp_path, "init", "-q")
+    (tmp_path / ".loop-hooks.json").write_text("{broken", encoding="utf-8")
+    gate.handle({"cwd": str(tmp_path), "stop_hook_active": False})
+    rec = last(tmp_path)
+    assert rec["decision"] == "disabled" and "cannot read" in rec["note"]
+
+
+def test_設定が無いリポジトリでは記録しない(tmp_path):
+    git(tmp_path, "init", "-q")
+    gate.handle({"cwd": str(tmp_path)})
+    assert log.tail(str(tmp_path)) == []
