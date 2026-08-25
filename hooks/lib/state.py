@@ -58,6 +58,15 @@ def write_verified(root: str, fingerprint: str) -> None:
     _write(root, "verified", fingerprint)
 
 
+def read_noticed(root: str) -> str | None:
+    """最後に利用者へ出した設定通知(同じ通知を繰り返さないため)。"""
+    return _read_str(root, "noticed")
+
+
+def write_noticed(root: str, notice: str) -> None:
+    _write(root, "noticed", notice)
+
+
 def read_blocked(root: str) -> str | None:
     return _read_str(root, "blocked")
 

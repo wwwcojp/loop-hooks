@@ -17,17 +17,28 @@ def git(cwd: Path, *args: str) -> None:
     subprocess.run(("git",) + args, cwd=cwd, capture_output=True, check=True)
 
 
-def setup_repo(tmp_path: Path, command: str, timeout_sec: int = 10) -> dict:
-    """watch対象に未検証の変更があるgitリポジトリを作り、Stopイベントを返す。"""
+def setup_repo(tmp_path: Path, command: str, timeout_sec: int = 10,
+               commit: bool = True) -> dict:
+    """watch対象に未検証の変更があるgitリポジトリを作り、Stopイベントを返す。
+
+    設定はコミット済みにする(実運用の形。HEAD 版が優先されるため)。
+    commit=False なら未追跡のまま置く。
+    """
     git(tmp_path, "init", "-q")
     git(tmp_path, "config", "user.email", "t@example.com")
     git(tmp_path, "config", "user.name", "t")
     git(tmp_path, "config", "commit.gpgsign", "false")
-    (tmp_path / ".loop-hooks.json").write_text(json.dumps(
-        {"gate": {"command": command, "timeout_sec": timeout_sec,
-                  "watch": WATCH, "ignore": IGNORE}}), encoding="utf-8")
+    write_config(tmp_path, {"gate": {"command": command, "timeout_sec": timeout_sec,
+                                     "watch": WATCH, "ignore": IGNORE}}, commit=commit)
     (tmp_path / "main.ts").write_text("source\n", encoding="utf-8")
     return {"cwd": str(tmp_path), "stop_hook_active": False}
+
+
+def write_config(tmp_path: Path, cfg: dict, commit: bool = True) -> None:
+    (tmp_path / ".loop-hooks.json").write_text(json.dumps(cfg), encoding="utf-8")
+    if commit:
+        git(tmp_path, "add", ".loop-hooks.json")
+        git(tmp_path, "commit", "-qm", "config")
 
 
 def blocked(out) -> str | None:
@@ -344,9 +355,8 @@ def test_TeammateIdleは状態が変わればまたブロックする(tmp_path):
 def test_onに含まれないイベントではゲートしない(tmp_path):
     marker = tmp_path / "ran"
     event = setup_repo(tmp_path, f"touch {marker}")
-    (tmp_path / ".loop-hooks.json").write_text(json.dumps(
-        {"gate": {"command": f"touch {marker}", "watch": WATCH, "ignore": IGNORE,
-                  "on": ["stop"]}}), encoding="utf-8")
+    write_config(tmp_path, {"gate": {"command": f"touch {marker}", "watch": WATCH,
+                                     "ignore": IGNORE, "on": ["stop"]}})
     assert gate.handle(subagent(event)) is None
     assert not marker.exists()
     assert gate.handle(teammate(event)) is None
@@ -379,7 +389,85 @@ def test_ゲートが通ればブロック記録は無効になる(tmp_path):
     event = teammate(setup_repo(tmp_path, "false"))
     assert blocked(gate.handle(event))
     assert state.read_blocked(str(tmp_path))
-    (tmp_path / ".loop-hooks.json").write_text(json.dumps(
-        {"gate": {"command": "true", "watch": WATCH, "ignore": IGNORE}}), encoding="utf-8")
+    write_config(tmp_path, {"gate": {"command": "true", "watch": WATCH, "ignore": IGNORE}})
     assert gate.handle(event) is None
     assert not state.read_blocked(str(tmp_path))
+
+
+# --- 0.2.1: 同じフィンガープリントは2度ブロックしない(全イベント) ---
+
+def test_Stopは同じ状態を二度ブロックしない(tmp_path):
+    """stop_hook_active が伝播しない状況(upstream #54360)でも閉じ込めない。"""
+    event = setup_repo(tmp_path, "false")
+    assert blocked(gate.handle(event))
+    out = gate.handle(event)  # 何も直さずにもう一度止まろうとした
+    assert blocked(out) is None
+    assert "systemMessage" in out
+
+
+def test_Stopは状態が変わればまたブロックする(tmp_path):
+    event = setup_repo(tmp_path, "false")
+    assert blocked(gate.handle(event))
+    (tmp_path / "main.ts").write_text("attempted fix\n", encoding="utf-8")
+    assert blocked(gate.handle(event))
+
+
+def test_SubagentStopは同じ状態を二度ブロックしない(tmp_path):
+    event = subagent(setup_repo(tmp_path, "false"))
+    assert blocked(gate.handle(event))
+    out = gate.handle(event)
+    assert blocked(out) is None
+    assert "systemMessage" in out
+
+
+def test_二度目の警告後も検証済みにはならない(tmp_path):
+    event = setup_repo(tmp_path, "false")
+    gate.handle(event)
+    gate.handle(event)
+    assert state.read_verified(str(tmp_path)) is None
+
+
+# --- 0.2.1: フィードバックは先頭と末尾を残す ---
+
+def test_長い出力は先頭と末尾の両方が残る(tmp_path):
+    """pytest のトレースバックは末尾より前に出るので、末尾だけでは原因が切れる。"""
+    script = "python3 -c \"print('FIRST_LINE'); print('x'*20000); print('LAST_LINE')\"; exit 1"
+    fb = blocked(gate.handle(setup_repo(tmp_path, script)))
+    assert "FIRST_LINE" in fb
+    assert "LAST_LINE" in fb
+    assert "truncated" in fb
+    assert len(fb) <= 9000  # Claude Code のフック出力上限 10,000 を下回る
+
+
+def test_短い出力は切り詰めない(tmp_path):
+    fb = blocked(gate.handle(setup_repo(tmp_path, "echo ONLY; exit 1")))
+    assert "ONLY" in fb
+    assert "truncated" not in fb
+
+
+# --- 0.2.1: 設定改変によるゲート回避を防ぐ ---
+
+def test_作業ツリーでcommandを緩めてもHEADの設定でブロックされる(tmp_path):
+    event = setup_repo(tmp_path, "false")
+    (tmp_path / ".loop-hooks.json").write_text(json.dumps(
+        {"gate": {"command": "true", "watch": WATCH}}), encoding="utf-8")  # 改変
+    out = gate.handle(event)
+    assert blocked(out)
+    assert "systemMessage" in out  # 改変に気づけるよう通知する
+
+
+def test_未コミット設定の通知はゲート実行時に一度だけ出る(tmp_path):
+    event = setup_repo(tmp_path, "true", commit=False)  # 設定は未追跡のまま
+    first = gate.handle(event)
+    assert first and "not committed" in first["systemMessage"]
+    (tmp_path / "main.ts").write_text("again\n", encoding="utf-8")
+    assert gate.handle(event) is None  # 2回目のゲート実行では繰り返さない
+
+
+def test_設定をコミットすれば通知は消える(tmp_path):
+    event = setup_repo(tmp_path, "true", commit=False)
+    assert "systemMessage" in gate.handle(event)
+    (tmp_path / "main.ts").write_text("again\n", encoding="utf-8")
+    git(tmp_path, "add", ".loop-hooks.json")
+    git(tmp_path, "commit", "-qm", "config")
+    assert gate.handle(event) is None

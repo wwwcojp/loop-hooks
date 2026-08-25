@@ -45,3 +45,22 @@ def test_pyprojectとplugin_jsonのバージョンが一致する():
     declared = re.search(r'^version = "([^"]+)"', pyproject, re.MULTILINE).group(1)
     plugin = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
     assert plugin["version"] == declared
+
+
+def _hook_entries():
+    data = json.loads((ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+    return [h for entries in data["hooks"].values() for e in entries for h in e["hooks"]]
+
+
+def test_hooks_jsonのtimeoutはgate_timeout_secの上限より長い():
+    """Claude Code 側が先にフックを殺すと、プロセスグループの後始末が走らない。"""
+    import sys
+    sys.path.insert(0, str(ROOT / "hooks"))
+    from lib import config
+    for hook in _hook_entries():
+        assert hook["timeout"] > config.TIMEOUT_MAX_SEC
+
+
+def test_全フックにstatusMessageがある():
+    for hook in _hook_entries():
+        assert hook.get("statusMessage"), hook

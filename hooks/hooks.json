@@ -3,21 +3,36 @@
     "Stop": [
       {
         "hooks": [
-          {"type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.py\"", "timeout": 660}
+          {
+            "type": "command",
+            "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.py\"",
+            "timeout": 3600,
+            "statusMessage": "loop-hooks: running verification gate"
+          }
         ]
       }
     ],
     "SubagentStop": [
       {
         "hooks": [
-          {"type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.py\"", "timeout": 660}
+          {
+            "type": "command",
+            "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.py\"",
+            "timeout": 3600,
+            "statusMessage": "loop-hooks: running verification gate"
+          }
         ]
       }
     ],
     "TeammateIdle": [
       {
         "hooks": [
-          {"type": "command", "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.py\"", "timeout": 660}
+          {
+            "type": "command",
+            "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.py\"",
+            "timeout": 3600,
+            "statusMessage": "loop-hooks: running verification gate"
+          }
         ]
       }
     ]

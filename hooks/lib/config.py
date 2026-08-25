@@ -2,8 +2,13 @@
 import json
 from pathlib import Path
 
+from . import fingerprint
+
 CONFIG_NAME = ".loop-hooks.json"
 EVENTS = ("stop", "subagent_stop", "teammate_idle")
+# hooks.json の timeout(3600)より確実に短くする。Claude Code 側が先にフックを殺すと
+# プロセスグループの後始末(killpg)が走らず、テストランナーが孤児として残る。
+TIMEOUT_MAX_SEC = 3000
 GATE_DEFAULTS = {
     "on": list(EVENTS),
     "timeout_sec": 600,
@@ -14,16 +19,50 @@ GATE_DEFAULTS = {
 
 def load(root: str | None) -> dict | None:
     """設定を返す。ファイルが無い repo は None(=このrepoではゲート無効)。
-    ファイルはあるが読めない・不正なら {"_error": 理由}(Stop側が警告を出す)。"""
+    ファイルはあるが読めない・不正なら {"_error": 理由}(Stop側が警告を出す)。
+
+    git リポジトリでは HEAD にコミットされた設定を優先する。作業ツリーの設定は
+    エージェントが書き換えられる(command を true にする、ファイルを壊す・消す)ので、
+    それでゲートを無効化できないようにするため。HEAD に無ければ作業ツリー版を使い、
+    コミットを促す通知("_notice")を付ける。
+    """
     if not root:
         return None
     path = Path(root) / CONFIG_NAME
-    if not path.is_file():
+    committed = fingerprint.head_file(root, CONFIG_NAME) if fingerprint.repo_root(root) else None
+    try:
+        working = path.read_bytes() if path.is_file() else None
+    except OSError as exc:
+        if committed is None:
+            return {"_error": f"cannot read {CONFIG_NAME}: {exc}"}
+        working = None
+    notice = None
+    if committed is not None:
+        source = committed
+        if working is None:
+            notice = (f"{CONFIG_NAME} is missing from the working tree; "
+                      "using the committed version")
+        elif working != committed:
+            notice = (f"{CONFIG_NAME} differs from HEAD; using the committed version. "
+                      "Commit the change if it is intended")
+    elif working is not None:
+        source = working
+        if fingerprint.repo_root(root):
+            notice = (f"{CONFIG_NAME} is not committed. Commit it so the gate "
+                      "cannot be altered by editing the working tree")
+    else:
         return None
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        raw = json.loads(source.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         return {"_error": f"cannot read {CONFIG_NAME}: {exc}"}
+    result = _validate(raw)
+    if notice and "_error" not in result:
+        result["_notice"] = notice
+    return result
+
+
+def _validate(raw) -> dict:
     gate = raw.get("gate") if isinstance(raw, dict) else None
     if not isinstance(gate, dict) or not isinstance(gate.get("command"), str):
         return {"_error": f"{CONFIG_NAME} has no gate.command (string)"}
@@ -33,8 +72,10 @@ def load(root: str | None) -> dict | None:
     merged.update(gate)
 
     timeout_sec = merged.get("timeout_sec")
-    if isinstance(timeout_sec, bool) or not isinstance(timeout_sec, int) or timeout_sec < 1:
-        return {"_error": f"{CONFIG_NAME}: gate.timeout_sec must be an integer >= 1"}
+    if (isinstance(timeout_sec, bool) or not isinstance(timeout_sec, int)
+            or not 1 <= timeout_sec <= TIMEOUT_MAX_SEC):
+        return {"_error": f"{CONFIG_NAME}: gate.timeout_sec must be an integer "
+                          f"between 1 and {TIMEOUT_MAX_SEC}"}
 
     for key in ("watch", "ignore"):
         value = merged.get(key)

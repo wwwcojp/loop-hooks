@@ -29,6 +29,11 @@ def repo_root(cwd: str | None) -> str | None:
     return out.decode("utf-8", "surrogateescape").strip() if out is not None else None
 
 
+def head_file(root: str, rel: str) -> bytes | None:
+    """HEAD にコミットされている rel の内容。HEAD に無い(未追跡・コミット無し)なら None。"""
+    return _git(root, "show", f"HEAD:{rel}")
+
+
 def is_watched(rel: str, gate_cfg: dict) -> bool:
     """リポジトリ相対パスがゲート対象か。ignore は watch より優先。"""
     if any(fnmatch.fnmatch(rel, p) for p in gate_cfg["ignore"]):

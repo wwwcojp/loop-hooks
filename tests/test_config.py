@@ -117,3 +117,78 @@ def test_onが文字列だと_errorになる(tmp_path):
 def test_onが空リストだと_errorになる(tmp_path):
     cwd = write(tmp_path, {"gate": {"command": "echo ok", "on": []}})
     assert "_error" in config.load(cwd)
+
+
+def test_timeout_secが上限を超えると_errorになる(tmp_path):
+    too_long = config.TIMEOUT_MAX_SEC + 1
+    cwd = write(tmp_path, {"gate": {"command": "echo ok", "timeout_sec": too_long}})
+    assert "_error" in config.load(cwd)
+
+
+def test_timeout_secは上限ちょうどまで許す(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": "echo ok", "timeout_sec": config.TIMEOUT_MAX_SEC}})
+    assert "_error" not in config.load(cwd)
+
+
+# --- 0.2.1: HEAD にコミットされた設定を優先する ---
+
+import subprocess  # noqa: E402
+
+
+def git(cwd: Path, *args: str) -> None:
+    subprocess.run(("git",) + args, cwd=cwd, capture_output=True, check=True)
+
+
+def repo_with_committed(tmp_path: Path, body: dict) -> str:
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "config", "user.email", "t@example.com")
+    git(tmp_path, "config", "user.name", "t")
+    git(tmp_path, "config", "commit.gpgsign", "false")
+    write(tmp_path, body)
+    git(tmp_path, "add", ".loop-hooks.json")
+    git(tmp_path, "commit", "-qm", "config")
+    return str(tmp_path)
+
+
+def test_作業ツリーで書き換えてもHEADの設定が使われる(tmp_path):
+    cwd = repo_with_committed(tmp_path, {"gate": {"command": "committed"}})
+    write(tmp_path, {"gate": {"command": "tampered"}})
+    cfg = config.load(cwd)
+    assert cfg["gate"]["command"] == "committed"
+    assert "_notice" in cfg
+
+
+def test_作業ツリーで壊してもHEADの設定が使われる(tmp_path):
+    cwd = repo_with_committed(tmp_path, {"gate": {"command": "committed"}})
+    write(tmp_path, "{broken")
+    cfg = config.load(cwd)
+    assert "_error" not in cfg
+    assert cfg["gate"]["command"] == "committed"
+
+
+def test_作業ツリーで削除してもHEADの設定が使われる(tmp_path):
+    cwd = repo_with_committed(tmp_path, {"gate": {"command": "committed"}})
+    (tmp_path / ".loop-hooks.json").unlink()
+    cfg = config.load(cwd)
+    assert cfg["gate"]["command"] == "committed"
+    assert "_notice" in cfg
+
+
+def test_HEADと一致していれば通知は無い(tmp_path):
+    cwd = repo_with_committed(tmp_path, {"gate": {"command": "committed"}})
+    assert "_notice" not in config.load(cwd)
+
+
+def test_未コミットの設定は使われるが通知が付く(tmp_path):
+    git(tmp_path, "init", "-q")
+    cwd = write(tmp_path, {"gate": {"command": "untracked"}})
+    cfg = config.load(cwd)
+    assert cfg["gate"]["command"] == "untracked"
+    assert "not committed" in cfg["_notice"]
+
+
+def test_gitでないディレクトリでは通知が無い(tmp_path):
+    cwd = write(tmp_path, {"gate": {"command": "plain"}})
+    cfg = config.load(cwd)
+    assert cfg["gate"]["command"] == "plain"
+    assert "_notice" not in cfg

@@ -87,11 +87,11 @@ ones with `gate.on`):
    finish. `Stop` and `SubagentStop` get it as `hookSpecificOutput.additionalContext`;
    `TeammateIdle` uses a different protocol, so it gets exit code 2 with the same
    text on stderr.
-6. It never traps an agent. On re-entry (`stop_hook_active`) a second failure
-   becomes a `systemMessage` warning and the turn ends. `TeammateIdle` carries no
-   re-entry flag, so instead the gate refuses to block the same fingerprint twice
-   in a row. Either way the fingerprint stays unrecorded, so the gate fires again
-   on the next change.
+6. It never traps an agent. The same fingerprint is never blocked twice in a
+   row — an unchanged tree means no fix was attempted — and on re-entry
+   (`stop_hook_active`) a second failure becomes a `systemMessage` warning. Either
+   way the fingerprint stays unrecorded, so the gate fires again on the next
+   change.
 
 ## Requirements
 
@@ -155,7 +155,7 @@ To develop the plugin itself, point the marketplace at a local checkout instead:
 | --- | --- | --- | --- |
 | `gate.command` | yes | — | Run through a shell, so `&&`, pipes, `$VARS`, globs and `~` all work. |
 | `gate.on` | no | all three | Which events to gate: `stop`, `subagent_stop`, `teammate_idle`. |
-| `gate.timeout_sec` | no | `600` | Integer ≥ 1. On timeout the whole process group is killed, so no orphaned test runners. |
+| `gate.timeout_sec` | no | `600` | Integer from 1 to 3000. On timeout the whole process group is killed, so no orphaned test runners. |
 | `gate.watch` | no | see above | Paths that make the gate fire. |
 | `gate.ignore` | no | see above | Wins over `watch`. |
 
@@ -165,6 +165,12 @@ Patterns are `fnmatch` against repository-relative paths. Note that **`*` crosse
 If the file is present but invalid (bad JSON, missing or empty `gate.command`,
 wrong types), the gate stays disabled and the Stop hook emits a `systemMessage`
 explaining why rather than blocking the turn.
+
+**Commit the file.** In a git repository the gate reads `.loop-hooks.json` from
+`HEAD`, not from the working tree. Editing, breaking or deleting the file in the
+working tree — which an agent can do — does not change or disable the gate; the
+divergence is reported in a `systemMessage`. An uncommitted file still works,
+with a one-time notice asking you to commit it.
 
 ## Pairings
 
@@ -251,10 +257,11 @@ Their scopes do not overlap, so use both.
   Cover test quality with mutation testing as above.
 - **Not an LLM review.** It operates as the deterministic tier. Judgements about
   intent or conformance to the request belong to `/goal` or a review subagent.
-- **Does not loop forever.** It is deliberately fail-open: a second failure on
-  re-entry becomes a warning, Claude Code stops after eight consecutive blocks,
-  and `TeammateIdle` is not blocked twice on the same state. In every case the
-  fingerprint stays unrecorded, so the gate runs again on the next change.
+- **Does not loop forever.** It is deliberately fail-open: the same fingerprint
+  is never blocked twice (no change means no fix was attempted), a second failure
+  on re-entry becomes a warning, and Claude Code stops after eight consecutive
+  blocks. In every case the fingerprint stays unrecorded, so the gate runs again
+  on the next change.
 
 ## State
 
@@ -272,8 +279,8 @@ $CLAUDE_PLUGIN_DATA/state/<sha16-of-repo-path>.json
 ```
 
 `verified` is the fingerprint recorded the last time the gate passed; `blocked` is
-the re-entry guard for `TeammateIdle`. Delete the file to force the gate to run on
-the next turn.
+the fingerprint of the last block, so the same state is never blocked twice.
+Delete the file to force the gate to run on the next turn.
 
 ## Manual smoke test
 

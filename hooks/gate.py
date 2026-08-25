@@ -20,7 +20,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import config, fingerprint, hook_io, state  # noqa: E402
 
-OUTPUT_TAIL_CHARS = 2000
+# Claude Code はフック出力を 10,000 字で切る。その内側で、失敗の原因(トレースバック等は
+# 末尾より前に出る)と結果の要約(末尾)の両方が残るように、先頭と末尾を残して中を落とす。
+OUTPUT_HEAD_CHARS = 2500
+OUTPUT_TAIL_CHARS = 5500
 KILL_GRACE_SEC = 5
 
 # hook_event_name → .loop-hooks.json の gate.on で使うキー
@@ -57,23 +60,36 @@ def run_gate(cmd: str, cwd: str, timeout: int) -> tuple[bool, str]:
         return False, f"$ {cmd}\ntimed out after {timeout}s"
     if proc.returncode == 0:
         return True, ""
-    return False, f"$ {cmd}\n{out[-OUTPUT_TAIL_CHARS:]}"
+    return False, f"$ {cmd}\n{_excerpt(out)}"
+
+
+def _excerpt(out: str) -> str:
+    limit = OUTPUT_HEAD_CHARS + OUTPUT_TAIL_CHARS
+    if len(out) <= limit:
+        return out
+    dropped = len(out) - limit
+    return (out[:OUTPUT_HEAD_CHARS] + f"\n... [{dropped} characters truncated] ...\n"
+            + out[-OUTPUT_TAIL_CHARS:])
 
 
 def _refuse(hook_event: str, root: str, current: str | None,
             detail: str, event: dict) -> dict:
-    """検証に失敗したときの応答。イベントごとに形式が違う。"""
-    if hook_event == "TeammateIdle":
-        # このイベントには stop_hook_active が無い。同じ状態を繰り返しブロックすると
-        # teammate を閉じ込めるので、一度ブロックした状態は次は警告だけで通す。
-        if current is not None and current == state.read_blocked(root):
-            return {"systemMessage": WARN + detail}
-        if current is not None:
-            state.write_blocked(root, current)
-        # teammate は JSON では止められない(continue:false は teammate 自体を終わらせる)
-        return {"_exit_code": 2, "_stderr": FEEDBACK + detail}
+    """検証に失敗したときの応答。イベントごとに形式が違う。
+
+    同じフィンガープリントは2度ブロックしない。フィンガープリントが同じなら
+    エージェントは何も直していないので、再ブロックしても同じ失敗を繰り返すだけ
+    になる。この規則は stop_hook_active に依存しないため、そのフラグが伝播しない
+    状況や、TeammateIdle のようにフラグ自体が無いイベントでも閉じ込めない。
+    """
     if event.get("stop_hook_active"):
         return {"systemMessage": WARN + detail}
+    if current is not None and current == state.read_blocked(root):
+        return {"systemMessage": WARN + detail}
+    if current is not None:
+        state.write_blocked(root, current)
+    if hook_event == "TeammateIdle":
+        # teammate は JSON では止められない(continue:false は teammate 自体を終わらせる)
+        return {"_exit_code": 2, "_stderr": FEEDBACK + detail}
     return {"hookSpecificOutput": {"hookEventName": hook_event,
                                    "additionalContext": FEEDBACK + detail}}
 
@@ -109,8 +125,20 @@ def handle(event: dict) -> dict | None:
         if verified is not None:
             state.write_verified(root, verified)
         state.write_blocked(root, "")  # 直ったのでブロック記録を無効化
-        return None
-    return _refuse(hook_event, root, current, detail, event)
+        out = {}
+    else:
+        out = _refuse(hook_event, root, current, detail, event)
+    return _with_notice(out, root, cfg.get("_notice"))
+
+
+def _with_notice(out: dict, root: str, notice: str | None) -> dict | None:
+    """設定に関する通知を、ゲートが実際に走った回に一度だけ添える。"""
+    if notice and notice != state.read_noticed(root):
+        state.write_noticed(root, notice)
+        prefix = f"[loop-hooks] {notice}"
+        existing = out.get("systemMessage")
+        out["systemMessage"] = prefix + ("\n" + existing if existing else "")
+    return out or None
 
 
 if __name__ == "__main__":
