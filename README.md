@@ -120,7 +120,7 @@ $CLAUDE_PLUGIN_DATA/state/<sha16-of-repo-path>.json
 ```
 
 ```json
-{"root": "/home/you/my-project", "verified": "9f2c…", "blocked": ""}
+{"root": "/home/alice/my-project", "verified": "9f2c…", "blocked": ""}
 ```
 
 `verified` is the fingerprint recorded the last time the gate passed; `blocked` is

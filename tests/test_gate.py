@@ -6,8 +6,8 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
-from lib import fingerprint, state  # noqa: E402
 import gate  # noqa: E402
+from lib import fingerprint, state  # noqa: E402
 
 WATCH = ["*.ts"]
 IGNORE = [".loop/*", "*.md"]

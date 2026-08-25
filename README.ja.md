@@ -113,7 +113,7 @@ $CLAUDE_PLUGIN_DATA/state/<リポジトリパスのsha16>.json
 ```
 
 ```json
-{"root": "/home/you/my-project", "verified": "9f2c…", "blocked": ""}
+{"root": "/home/alice/my-project", "verified": "9f2c…", "blocked": ""}
 ```
 
 `verified` は最後にゲートを通った時点のフィンガープリント。`blocked` は
