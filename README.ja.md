@@ -119,15 +119,6 @@ $CLAUDE_PLUGIN_DATA/state/<リポジトリパスのsha16>.json
 `verified` は最後にゲートを通った時点のフィンガープリント。`blocked` は
 `TeammateIdle` 用の再入ガード。削除すれば次のターンで必ずゲートが走る。
 
-## evidence(機能ではなく取り決め)
-
-`.loop/evidence.jsonl` は、verify ランナー側が1実行1行で追記することを想定した場所。
-**このプラグインは書きも読みもしない**。ランナーとゲートが形を揃えるための記述:
-
-```json
-{"ts":"2026-08-19T12:34:56.789Z","rev":"64db08b+dirty","stage":"quick","pass":false,"checks":[{"name":"typecheck","ok":true,"ms":4120},{"name":"unit","ok":false,"ms":9876}]}
-```
-
 ## 手動スモーク
 
 ```bash

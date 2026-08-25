@@ -127,16 +127,6 @@ $CLAUDE_PLUGIN_DATA/state/<sha16-of-repo-path>.json
 the re-entry guard for `TeammateIdle`. Delete the file to force the gate to run on
 the next turn.
 
-## Evidence (a convention, not a feature)
-
-`.loop/evidence.jsonl` is where a verify runner is expected to append one line
-per run. **This plugin neither writes nor reads it** — it is documented here so
-that a runner and a gate agree on a shape:
-
-```json
-{"ts":"2026-08-19T12:34:56.789Z","rev":"64db08b+dirty","stage":"quick","pass":false,"checks":[{"name":"typecheck","ok":true,"ms":4120},{"name":"unit","ok":false,"ms":9876}]}
-```
-
 ## Manual smoke test
 
 ```bash
