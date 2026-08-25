@@ -61,6 +61,9 @@ loop-hooks は Claude Code におけるこの決定論的な層を、最小の�
 
 ## 何をするか
 
+セッション開始時には `hooks/session_start.py` が設定を検証し、ゲートを告知する
+(コマンドは実行しない)。
+
 スクリプト 1 つ `hooks/gate.py` が、エージェントが手を止めようとする3つの
 イベント — **Stop** / **SubagentStop** / **TeammateIdle** — で走る
 (`gate.on` でどれを掛けるか選べる)：
@@ -146,8 +149,8 @@ Claude Code の中から marketplace を登録してプラグインをインス�
 | `gate.command` | はい | — | シェル経由で実行する。`&&`、パイプ、`$VAR`、glob、`~` が使える。 |
 | `gate.on` | いいえ | 3つとも | ゲートするイベント: `stop` / `subagent_stop` / `teammate_idle`。 |
 | `gate.timeout_sec` | いいえ | `600` | 1〜3000 の整数。タイムアウト時はプロセスグループごと落とすので、テストランナーが孤児として残らない。 |
-| `gate.watch` | いいえ | 上記 | ゲートを発火させるパス。 |
-| `gate.ignore` | いいえ | 上記 | `watch` より優先。 |
+| `gate.watch` | いいえ | `["*"]` | ゲートを発火させるパス。`watch` を省略すると全ファイルが対象になる。 |
+| `gate.ignore` | いいえ | `["node_modules/*", "*/node_modules/*", ".venv/*", "*/.venv/*", "dist/*", "build/*", "target/*", ".claude/*", ".loop/*", "*.md"]` | `watch` より優先。 |
 
 パターンはリポジトリ相対パスに対する `fnmatch`。**`*` は `/` もまたぐ**ので、
 `docs/*` は `docs/a/b.md` にも一致する。
@@ -262,6 +265,19 @@ $CLAUDE_PLUGIN_DATA/state/<リポジトリパスのsha16>.json
 `verified` は最後にゲートを通った時点のフィンガープリント。`blocked` は最後にブロック
 した時点のもので、同じ状態を2度ブロックしないために使う。削除すれば次のターンで必ず
 ゲートが走る。
+
+## トラブルシューティング
+
+**このリポジトリでゲートは有効か:** Claude Code の中で `/loop-hooks:status` を実行するか、
+ターミナルから `uv run /path/to/loop-hooks/hooks/gate.py --status [repo]` を実行する。設定が
+どこから読まれたか、ゲートが何を実行するか、次の stop で走るか、直近5件の判定を表示する。
+
+**セッション開始時に `[loop-hooks] gate active:` の行が出ない**(`.loop-hooks.json` は
+あるのに): このセッションではプラグインが読み込まれていない。フック定義はセッション
+開始時にスナップショットされるため、プラグインを更新した後は Claude Code を再起動する。
+
+**判定ログ:** `$CLAUDE_PLUGIN_DATA/state/<key>.log.jsonl`(または
+`~/.cache/loop-hooks/state/`)。1判定につき1行の JSON、最新が最後。
 
 ## 手動スモーク
 

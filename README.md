@@ -67,6 +67,9 @@ Three design decisions follow:
 
 ## What it does
 
+At session start, `hooks/session_start.py` validates the configuration and
+announces the gate (never runs the command).
+
 One script, `hooks/gate.py`, runs on the three events where an agent is about
 to stop working — **Stop**, **SubagentStop** and **TeammateIdle** (pick which
 ones with `gate.on`):
@@ -156,8 +159,8 @@ To develop the plugin itself, point the marketplace at a local checkout instead:
 | `gate.command` | yes | — | Run through a shell, so `&&`, pipes, `$VARS`, globs and `~` all work. |
 | `gate.on` | no | all three | Which events to gate: `stop`, `subagent_stop`, `teammate_idle`. |
 | `gate.timeout_sec` | no | `600` | Integer from 1 to 3000. On timeout the whole process group is killed, so no orphaned test runners. |
-| `gate.watch` | no | see above | Paths that make the gate fire. |
-| `gate.ignore` | no | see above | Wins over `watch`. |
+| `gate.watch` | no | `["*"]` | Paths that make the gate fire. Omitting `watch` means every file is watched. |
+| `gate.ignore` | no | `["node_modules/*", "*/node_modules/*", ".venv/*", "*/.venv/*", "dist/*", "build/*", "target/*", ".claude/*", ".loop/*", "*.md"]` | Wins over `watch`. |
 
 Patterns are `fnmatch` against repository-relative paths. Note that **`*` crosses
 `/`**: `docs/*` also matches `docs/a/b.md`.
@@ -281,6 +284,20 @@ $CLAUDE_PLUGIN_DATA/state/<sha16-of-repo-path>.json
 `verified` is the fingerprint recorded the last time the gate passed; `blocked` is
 the fingerprint of the last block, so the same state is never blocked twice.
 Delete the file to force the gate to run on the next turn.
+
+## Troubleshooting
+
+**Is the gate active here?** Run `/loop-hooks:status` inside Claude Code, or from a
+terminal: `uv run /path/to/loop-hooks/hooks/gate.py --status [repo]`. It shows where
+the configuration was read from, what the gate runs, whether it will run at the next
+stop, and the last five decisions.
+
+**No `[loop-hooks] gate active:` line at session start** in a repository that has
+`.loop-hooks.json`: the plugin is not loaded in this session. Hook definitions are
+snapshotted when a session starts, so restart Claude Code after updating the plugin.
+
+**Decision log:** `$CLAUDE_PLUGIN_DATA/state/<key>.log.jsonl` (or
+`~/.cache/loop-hooks/state/`), one JSON line per decision, newest last.
 
 ## Manual smoke test
 

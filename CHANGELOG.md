@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.3.0] - 2026-08-26
+
+### Added
+- **`SessionStart` hook.** When a session starts (or resumes, or after `/clear` and
+  compaction), loop-hooks validates `.loop-hooks.json` and, if the gate is active,
+  tells the agent what runs and when, and prints one line for you:
+  `[loop-hooks] gate active: <command>`. If that line is missing in a repository
+  that has a configuration, the plugin is not loaded — restart Claude Code. Invalid
+  configuration and non-git directories are reported at session start instead of at
+  the first Stop. The verification command is never run here.
+- **Decision log.** Every gate decision (`skipped`, `ran pass/fail/warn`, `off`,
+  `disabled`, `announced`) is appended to `<state dir>/<key>.log.jsonl`, capped at
+  1000 lines. Nothing is written into your repository.
+- **`/loop-hooks:status`** and **`uv run …/hooks/gate.py --status [path]`**: where
+  the configuration was read from, what the gate runs, whether it will run at the
+  next stop, and the last five decisions. Read-only.
+
+### Changed (breaking)
+- **`watch` now defaults to `["*"]`** (every file), and the default `ignore` covers
+  `node_modules`, `.venv`, `dist`, `build`, `target`, `.claude`, `.loop` and `*.md`.
+  Repositories that omitted `watch` were gated on TypeScript files only; a Python
+  repository without an explicit `watch` was silently never gated. Repositories that
+  set `watch` explicitly are unaffected.
+
+### Upgrading
+Restart running Claude Code sessions after updating. The first session after the
+restart prints `[loop-hooks] gate active: …` in gated repositories, which confirms
+the update took effect.
+
 ## [0.2.1] - 2026-08-25
 
 ### Fixed
