@@ -25,6 +25,43 @@ from which tools Claude happened to call, it catches every edit path: `Edit` and
 the fingerprint returns to its previous value, so a turn that breaks and then
 fixes a file costs you nothing.
 
+## Where it fits
+
+*Loop engineering* — the term [Addy Osmani](https://addyosmani.com/blog/loop-engineering/)
+made the long-form case for, [Gergely Orosz](https://newsletter.pragmaticengineer.com/p/what-is-loop-engineering)
+surveyed, and Boris Cherny summed up as "my job now is to write loops" — names the
+shift from prompting an agent to designing the system that prompts it: triggers,
+schedules, worktrees, `/goal`, subagents, memory. Most of that is orchestration,
+and this plugin does none of it.
+
+It does one narrow thing inside that picture. Every loop has to answer the
+question Sonar's [write-up](https://www.sonarsource.com/blog/loop-engineering-without-verification-is-just-automation/)
+puts at the centre: *who, or what, is allowed to say the loop is finished?* If the
+answer is the model that did the work, or a second model asked to review it, you
+have two optimists agreeing, and the failure mode is the premature-completion loop:
+"done" declared on work that isn't. What that write-up and Osmani both land on is
+a **deterministic tier** — in Osmani's phrase, a check that can fail the work, not
+a verifier with an opinion. loop-hooks is that tier for Claude Code, in its
+smallest form: a command your repository already has, run at the moment the agent
+tries to stop, with the result handed back as the next instruction instead of as
+a report.
+
+Three design choices follow from taking that role seriously:
+
+- **Orientation and enforcement are different layers.** `CLAUDE.md` tells the
+  agent what good looks like; it can be forgotten, summarised away, or reasoned
+  around. A hook can't. Keep policy in `CLAUDE.md`; put what must not be skipped
+  in a hook.
+- **The plugin doesn't know what "verified" means.** It knows how to run a
+  command and refuse to end the turn. What the command checks — tests, types,
+  lint, static analysis, a contract suite — is the repository's decision, in
+  `.loop-hooks.json`. That is why one plugin serves a TypeScript monorepo and a
+  Python CLI alike, and why a gate can get stricter without the plugin changing.
+- **Per turn, not per commit.** A pre-commit hook fires only if the agent
+  commits. CI fires minutes later, outside the loop, after the context that
+  produced the bug is gone. A Stop hook fires while the failure is still the
+  agent's problem. Change detection is what makes per-turn affordable.
+
 ## What it does
 
 One script, `hooks/gate.py`, runs on the three events where an agent is about
@@ -107,6 +144,99 @@ Patterns are `fnmatch` against repository-relative paths. Note that **`*` crosse
 If the file is present but invalid (bad JSON, missing or empty `gate.command`,
 wrong types), the gate stays disabled and the Stop hook emits a `systemMessage`
 explaining why rather than blocking the turn.
+
+## Pairings
+
+The gate is only as good as the command behind it. These are combinations that
+have held up in daily use.
+
+### TDD: enforce green, delegate red
+
+A Stop gate turns "make sure the tests pass before you finish" from an
+instruction into a contract — the GREEN step of the cycle, enforced. It says
+nothing about RED. For that, pair it with a `PreToolUse` guard such as
+[tdd-guard](https://github.com/nizos/tdd-guard), which refuses implementation
+edits that have no failing test. One hook keeps the agent from writing code it
+can't justify; the other keeps it from stopping with code that doesn't work.
+
+```json
+{"gate": {"command": "npm test -- --run", "watch": ["src/**", "test/**"]}}
+```
+
+### Mirror CI
+
+Make `gate.command` run exactly what CI runs, in the same order, and add a test
+that asserts the two lists are identical. "If it passes locally it passes CI"
+stops being a hope and becomes a checked property. Keep CI on the raw commands
+rather than calling the runner, so the equality test has two independent
+sources to compare.
+
+```json
+{"gate": {"command": "uv run ruff check . && uv run pytest -q"}}
+```
+
+### Tier the checks
+
+Anything on the Stop path is paid on every turn that changed a watched file, so
+keep that tier fast and push the slow tiers behind an explicit stage. A verify
+runner with `quick` / `mutation` / `all` stages is the shape that works: `quick`
+is lint plus unit tests (about one second for 240 tests in one Python repo,
+measured), `all` is what you run before you call a task done.
+
+```json
+{"gate": {"command": "uv run python scripts/verify.py quick", "timeout_sec": 120}}
+```
+
+### Mutation testing with a ratchet
+
+The gate proves the tests pass. It says nothing about whether the tests mean
+anything — an agent can turn a suite green by weakening an assertion. Mutation
+testing closes that gap: run [mutmut](https://mutmut.readthedocs.io/) (or
+Stryker, or cargo-mutants) as the slow tier, commit a per-file score baseline,
+and fail the stage if any file drops below it. Scores only go up. In one
+security-guard codebase this took 11 seconds for 803 mutants, and the survivors
+pointed at real untested boundaries, not noise. Too slow for every turn; right
+for "done".
+
+### Formatters and generators inside the gate
+
+Putting `ruff format`, `prettier --write`, or a code generator in the gate is
+safe here, because the fingerprint recorded on success is taken *after* the
+command ran. The rewritten files are part of the verified state, so the next
+turn doesn't fire the gate again on the formatter's own changes.
+
+```json
+{"gate": {"command": "ruff format . && ruff check . && pytest -q"}}
+```
+
+### Multi-agent: no unverified hand-offs
+
+With `on` left at its default, a subagent can't return and a teammate can't go
+idle while the gate is red, so the main agent never receives work that hasn't
+been checked. Duplicate gates are free: if the subagent's run left the tree
+verified, the main agent's Stop finds a matching fingerprint and runs nothing.
+
+### Layer with pre-action guards
+
+A `PreToolUse` deny/ask guard and a Stop gate answer different questions. The
+guard stops an action before it happens: a destructive command, a write to a
+secret, an outbound request carrying a token. The gate checks the outcome
+before the turn ends. Neither covers the other's ground, both are deterministic,
+and both are hooks — run them together.
+
+## What it is not
+
+- **Not CI.** CI is still the final judge. This shortens the loop so that most
+  of what CI would catch is caught while the agent can still fix it.
+- **Not a judge of test quality.** A green gate means the command exited 0. See
+  the mutation pairing above.
+- **Not an LLM reviewer.** It is the deterministic tier. For intent and
+  semantics — "is this what was asked?" — pair it with `/goal` or a reviewer
+  subagent, and let this gate be the one that can't be talked out of a verdict.
+- **Not a cage.** It fails open on purpose: a second failure on re-entry becomes
+  a warning, Claude Code caps consecutive blocks at eight, and `TeammateIdle`
+  is never blocked twice on the same state. What it never does is forget — the
+  fingerprint stays unrecorded, so the gate is back on the next change.
 
 ## State
 
