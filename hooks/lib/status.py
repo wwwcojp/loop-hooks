@@ -33,7 +33,7 @@ def collect(cwd: str) -> dict:
     current = fingerprint.compute(root, gate)
     verified = state.read_verified(root)
     info.update(fingerprint=current, verified=verified,
-                will_run=current is not None and current != verified,
+                will_run=current != verified,
                 blocked=current is not None and current == state.read_blocked(root))
     return info
 
@@ -70,7 +70,7 @@ def render(info: dict) -> str:
                         else "no")
         lines.append(_row("blocked", blocked_text))
     if info["recent"]:
-        rows = [_format_recent(r) for r in info["recent"]]
+        rows = [_safe_format_recent(r) for r in info["recent"]]
         lines.append(_row("recent", rows[0]))
         lines.extend(f"  {'':<9} {r}" for r in rows[1:])
     else:
@@ -78,11 +78,20 @@ def render(info: dict) -> str:
     return "\n".join(lines)
 
 
+def _safe_format_recent(r: dict) -> str:
+    try:
+        return _format_recent(r)
+    except (TypeError, ValueError):
+        return "(unreadable record)"
+
+
 def _format_recent(r: dict) -> str:
-    ts = str(r.get("ts", ""))[:16].replace("T", " ")
-    parts = [f"{ts:<16}", f"{r.get('event', ''):<13}", f"{r.get('decision', ''):<9}"]
+    ts = str(r.get("ts") or "")[:16].replace("T", " ")
+    event = str(r.get("event") or "")
+    decision = str(r.get("decision") or "")
+    parts = [f"{ts:<16}", f"{event:<13}", f"{decision:<9}"]
     if r.get("result"):
-        parts.append(f"{r['result']:<5}")
+        parts.append(f"{str(r['result']):<5}")
     if isinstance(r.get("ms"), int):
         parts.append(f"{r['ms'] / 1000:.1f}s")
     if r.get("note"):

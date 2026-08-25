@@ -99,3 +99,26 @@ def test_コマンドを実行しない(tmp_path):
     (r / "a.ts").write_text("x\n", encoding="utf-8")
     status.render(status.collect(str(r)))
     assert not (r / "SHOULD_NOT_RUN").exists()
+
+
+def test_壊れたログ記録でも例外にならない(tmp_path):
+    r = repo(tmp_path)
+    log.append(str(r), {"event": None, "decision": "ran", "result": None})
+    info = status.collect(str(r))
+    out = status.render(info)
+    assert isinstance(out, str)
+
+
+def test_fingerprintがNoneならverifiedと比較してwill_run(tmp_path, monkeypatch):
+    monkeypatch.setattr(status.fingerprint, "compute", lambda *a, **k: None)
+
+    with_verified_dir = tmp_path / "with_verified"
+    with_verified_dir.mkdir()
+    with_verified = repo(with_verified_dir)
+    state.write_verified(str(with_verified), "abc")
+    assert status.collect(str(with_verified))["will_run"] is True
+
+    without_verified_dir = tmp_path / "without_verified"
+    without_verified_dir.mkdir()
+    without_verified = repo(without_verified_dir)
+    assert status.collect(str(without_verified))["will_run"] is False
