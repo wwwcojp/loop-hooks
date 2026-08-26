@@ -85,3 +85,24 @@ def test_書き込めなくても例外を出さない(tmp_path, monkeypatch):
         assert log.tail(REPO) == []
     finally:
         d.chmod(stat.S_IRWXU)
+
+
+def test_切詰めは一時ファイル経由で差し替える(monkeypatch):
+    """0.3.1: 途中で落ちてもログが欠けないよう、書いてから os.replace する。"""
+    import os
+    replaced: list[tuple[str, str]] = []
+    real_replace = os.replace
+
+    def spy(src, dst):
+        replaced.append((str(src), str(dst)))
+        real_replace(src, dst)
+
+    monkeypatch.setattr(log.os, "replace", spy)
+    root = "/home/USER/repo-trim"
+    for i in range(log.MAX_LINES + 1):
+        log.append(root, {"event": "Stop", "decision": "skipped", "i": i})
+    assert replaced, "os.replace が呼ばれていない"
+    assert replaced[-1][1] == str(log._path(root))
+    assert not log._path(root).with_suffix(".jsonl.tmp").exists()
+    recs = log.tail(root, log.KEEP_LINES + 10)
+    assert len(recs) == log.KEEP_LINES and recs[0]["i"] == log.MAX_LINES

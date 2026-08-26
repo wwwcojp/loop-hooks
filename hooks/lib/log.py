@@ -5,6 +5,7 @@
 """
 import datetime
 import json
+import os
 from pathlib import Path
 
 from . import state
@@ -35,9 +36,13 @@ def append(root: str, record: dict) -> None:
 
 
 def _trim(p: Path) -> None:
+    """上限を超えたら直近 KEEP_LINES 行に切り詰める。一時ファイルに書いて差し替える(原子的)。"""
     lines = p.read_text(encoding="utf-8").splitlines()
-    if len(lines) > MAX_LINES:
-        p.write_text("\n".join(lines[-KEEP_LINES:]) + "\n", encoding="utf-8")
+    if len(lines) <= MAX_LINES:
+        return
+    tmp = p.with_suffix(".jsonl.tmp")
+    tmp.write_text("\n".join(lines[-KEEP_LINES:]) + "\n", encoding="utf-8")
+    os.replace(tmp, p)
 
 
 def tail(root: str, n: int = 5) -> list[dict]:
