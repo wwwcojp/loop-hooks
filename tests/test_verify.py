@@ -56,6 +56,13 @@ def test_ciのsecurityジョブはzizmorとpip_auditを回す():
     assert any("zizmor" in s for s in steps) and any("pip-audit" in s for s in steps)
 
 
+def test_ciのpip_auditステップはpipefailのためshell_bashを指定する():
+    """最終レビュー: 既定の `bash -e` には pipefail が無く、uv export の失敗を握りつぶす。"""
+    ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    m = re.search(r"- name: 依存の脆弱性\(pip-audit\)\n(.*?)(?:\n      - |\Z)", ci, re.S)
+    assert m and "shell: bash" in m.group(1), "pip-audit ステップに shell: bash が無い"
+
+
 def test_ciのActionsはSHAでピン留めされている():
     ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     uses = re.findall(r"uses:\s*(\S+)", ci)

@@ -53,4 +53,5 @@ jobs:
       - name: GitHub Actions の設定検査(zizmor)
         run: uvx zizmor --min-severity low .github/workflows
       - name: 依存の脆弱性(pip-audit)
+        shell: bash
         run: uv export --format requirements-txt --no-hashes | uvx pip-audit -r /dev/stdin

@@ -323,8 +323,9 @@ uv run pytest -v
 ```
 
 The repository gates itself with this plugin: `uv run python scripts/verify.py quick`
-runs the same checks as CI (home-path leak check, ruff check/format, import-linter,
-pyright, pytest).
+runs the same checks as CI's `test` job (home-path leak check, ruff check/format,
+import-linter, pyright, pytest). pyright needs `node` on PATH, or downloads one on
+first run.
 
 ## Limitations
 

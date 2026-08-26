@@ -84,7 +84,7 @@ quick: leak チェック → ruff check hooks tests scripts → pytest -q
 {
   "gate": {
     "command": "uv run python scripts/verify.py quick",
-    "timeout_sec": 120,
+    "timeout_sec": 300,
     "watch": ["*.py", "*.json", "*.toml", "skills/**/*.md", ".github/**/*.yml"],
     "ignore": [".superpowers/*", "docs/*"]
   }
@@ -96,6 +96,7 @@ quick: leak チェック → ruff check hooks tests scripts → pytest -q
 - 0.3.0 で `watch` 既定は全ファイルになったが、上記の理由で明示する。
 - `.github/**/*.yml` を含めるのは `test_verify.py` の CI ミラーテストが `ci.yml` を読むため
   (最終レビューでの追加)。
+- timeout_sec は 0.4.0 で 300 に(pyright 初回の Node 取得を見込む)。
 
 ### 2.3 ドッグフーディング規約 `CLAUDE.md`
 

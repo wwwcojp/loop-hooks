@@ -89,15 +89,16 @@ containers = ["lib"]
   実測で strict が 0 エラーなので basic を経由しない。
 - `tests` は初期は対象外。計画のスパイクで basic が 0 エラーなら `include` に足す(strict にはしない。
   monkeypatch 等の動的コードと相性が悪い)。
-- `quick` と CI に `uv run pyright` を追加。`pyright` を dev 依存に追加(uv が Node ランタイムを同梱する
-  wheel を解決する。CI の 3.10 / 3.14 両方で動くことを確認する)。
+- `quick` と CI に `uv run pyright` を追加。`pyright` を dev 依存に追加(pyright の wheel は Node を
+  同梱しない。PATH の `node` を使い、無ければ初回に nodeenv で取得する。初回は数十秒かかりうるので
+  `.loop-hooks.json` の `timeout_sec` を 300 にする。CI の 3.10 / 3.14 両方で動くことを確認する)。
 
 ### 3.5 CI — `test` / `security` の 2 ジョブ
 
 `test` ジョブ = `quick` の鏡(順序も同じ):
 
 ```
-leak → ruff check → ruff format --check → pyright → lint-imports → pytest
+leak → ruff check → ruff format --check → lint-imports → pyright → pytest
 ```
 
 `security` ジョブ(`quick` には入れない。外部ツール取得とネットワークが要るため):
@@ -106,6 +107,9 @@ leak → ruff check → ruff format --check → pyright → lint-imports → pyt
 uvx zizmor --min-severity low .github/workflows
 uv export --format requirements-txt --no-hashes | uvx pip-audit -r /dev/stdin
 ```
+
+(このステップは `shell: bash` を指定する。既定の `bash -e` には pipefail が無く、
+`uv export` の失敗が握りつぶされる — 最終レビューでの追加)
 
 `ci.yml` 自体の修正(zizmor をゼロにする):
 

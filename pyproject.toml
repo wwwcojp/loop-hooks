@@ -20,6 +20,8 @@ pythonVersion = "3.10"
 
 [tool.ruff]
 line-length = 100
+# ruff format は Markdown の fenced code も整形対象にする。docs は対象外
+extend-exclude = ["docs"]
 
 [tool.ruff.lint]
 # E402 を有効にすることで、hooks/ を import path に足すための sys.path.insert より
