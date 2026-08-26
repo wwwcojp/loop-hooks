@@ -60,6 +60,13 @@ def test_ゲートフックのtimeoutはgate_timeout_secの上限より長い():
     for hook in _hook_entries():
         if "gate.py" in hook["command"]:
             assert hook["timeout"] > config.TIMEOUT_MAX_SEC
+    assert sum("gate.py" in h["command"] for h in _hook_entries()) == 3
+
+
+def test_全フックにtimeoutがある():
+    for hook in _hook_entries():
+        timeout = hook.get("timeout")
+        assert isinstance(timeout, int) and not isinstance(timeout, bool) and timeout > 0, hook
 
 
 def test_全フックにstatusMessageがある():

@@ -542,3 +542,21 @@ def test_statusはstdinを読まずに状態を表示して0で終わる(tmp_pat
     assert "loop-hooks status" in r.stdout
     assert "gate will run" in r.stdout
     assert log.tail(str(tmp_path)) == []  # 表示は記録しない
+
+
+def test_statusは壊れた設定でも例外にせず0で終わる(tmp_path):
+    git(tmp_path, "init", "-q")
+    (tmp_path / ".loop-hooks.json").write_text("{broken", encoding="utf-8")
+    script = Path(__file__).resolve().parent.parent / "hooks" / "gate.py"
+    r = subprocess.run([sys.executable, str(script), "--status", str(tmp_path)],
+                       capture_output=True, text=True, stdin=subprocess.DEVNULL)
+    assert r.returncode == 0
+    assert "gate disabled" in r.stdout
+
+
+def test_statusはgitリポジトリでなくても0で終わる(tmp_path):
+    script = Path(__file__).resolve().parent.parent / "hooks" / "gate.py"
+    r = subprocess.run([sys.executable, str(script), "--status", str(tmp_path)],
+                       capture_output=True, text=True, stdin=subprocess.DEVNULL)
+    assert r.returncode == 0
+    assert "not a git repository" in r.stdout

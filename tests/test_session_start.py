@@ -111,7 +111,12 @@ def test_SessionStartでは通知の重複排除を消費しない(tmp_path):
 
 def test_スクリプトは常に0で終わる(tmp_path):
     script = Path(__file__).resolve().parent.parent / "hooks" / "session_start.py"
-    for stdin in (json.dumps(repo(tmp_path, {"gate": GATE})), "not json", ""):
+    valid_stdin = json.dumps(repo(tmp_path, {"gate": GATE}))
+    for stdin in (valid_stdin, "not json", ""):
         r = subprocess.run([sys.executable, str(script)], input=stdin,
                            capture_output=True, text=True)
         assert r.returncode == 0, stdin
+        if stdin is valid_stdin:
+            out = json.loads(r.stdout)
+            assert out["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+            assert out["systemMessage"].startswith("[loop-hooks] gate active:")
