@@ -80,3 +80,16 @@ def test_statusスキルが存在しnameがstatus():
     assert "name: status" in head
     assert "gate.py\" --status" in skill
     assert "${CLAUDE_PLUGIN_ROOT}" in skill and "${CLAUDE_PROJECT_DIR}" in skill
+
+
+def test_自リポジトリのゲート設定が有効で検証ランナーを指す():
+    """spec §2.2: loop-hooks 自身にゲートを掛ける(ドッグフーディング)。"""
+    import sys
+    sys.path.insert(0, str(ROOT / "hooks"))
+    from lib import config
+    cfg = config.load(str(ROOT))
+    assert cfg is not None and "_error" not in cfg, cfg
+    gate = cfg["gate"]
+    assert gate["command"] == "uv run python scripts/verify.py quick"
+    assert "*.py" in gate["watch"] and "skills/**/*.md" in gate["watch"]
+    assert "docs/*" in gate["ignore"]
