@@ -34,14 +34,14 @@ def state_dir() -> Path:
 
 def _plugin_data_dir() -> Path | None:
     """`<config dir>/plugins/data/loop-hooks-*/state` のうち最も新しいもの。無ければ None。"""
-    config_dir = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
     try:
+        config_dir = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
         candidates = [p / "state" for p in (config_dir / "plugins" / "data").glob("loop-hooks-*")
                       if (p / "state").is_dir()]
         if not candidates:
             return None
         return max(candidates, key=lambda p: p.stat().st_mtime)
-    except OSError:
+    except (OSError, RuntimeError):  # RuntimeError: HOME 無し・passwd 無しで Path.home() が失敗
         return None
 
 

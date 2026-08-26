@@ -108,6 +108,7 @@ def _plugin_data(home: Path, name: str) -> Path:
 
 def test_CLAUDE_PLUGIN_DATAが無ければプラグインのデータ置き場を探す(monkeypatch, tmp_path):
     """0.3.2: ターミナルからの --status はフックと同じ記録を読む。"""
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     monkeypatch.delenv("CLAUDE_PLUGIN_DATA", raising=False)
     monkeypatch.setenv("HOME", str(tmp_path))
     found = _plugin_data(tmp_path, "loop-hooks-loop-hooks")
@@ -126,6 +127,7 @@ def test_プラグインのデータ置き場はCLAUDE_CONFIG_DIRを優先する
 
 def test_データ置き場が複数あれば新しい方を使う(monkeypatch, tmp_path):
     import os
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     monkeypatch.delenv("CLAUDE_PLUGIN_DATA", raising=False)
     monkeypatch.setenv("HOME", str(tmp_path))
     old = _plugin_data(tmp_path, "loop-hooks-other")
@@ -140,3 +142,16 @@ def test_データ置き場が無ければXDGキャッシュに戻る(monkeypatc
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg"))
     assert state.state_dir() == tmp_path / "xdg" / "loop-hooks" / "state"
+
+
+def test_ホームが解決できなくても例外を出さない(monkeypatch, tmp_path):
+    """lib は例外を外に出さない: HOME 無し・passwd 無しの環境で Path.home() は RuntimeError。"""
+    monkeypatch.delenv("CLAUDE_PLUGIN_DATA", raising=False)
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+
+    def boom():
+        raise RuntimeError("no home")
+
+    monkeypatch.setattr(state.Path, "home", staticmethod(boom))
+    assert state.state_dir() == tmp_path / "loop-hooks" / "state"
