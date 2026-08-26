@@ -42,7 +42,9 @@ def test_有効なら告知と1行のsystemMessage(tmp_path):
     assert out["hookSpecificOutput"]["hookEventName"] == "SessionStart"
     assert "loop-hooks is active" in context(out)
     assert GATE["command"] in context(out)
-    assert out["systemMessage"] == f"[loop-hooks] gate active: {GATE['command']}"
+    from lib import config
+    assert out["systemMessage"] == (
+        f"[loop-hooks {config.plugin_version()}] gate active: {GATE['command']}")
 
 
 def test_告知には対象イベントとwatchとignoreが入る(tmp_path):
@@ -119,4 +121,13 @@ def test_スクリプトは常に0で終わる(tmp_path):
         if stdin is valid_stdin:
             out = json.loads(r.stdout)
             assert out["hookSpecificOutput"]["hookEventName"] == "SessionStart"
-            assert out["systemMessage"].startswith("[loop-hooks] gate active:")
+            assert out["systemMessage"].startswith("[loop-hooks ")
+            assert "] gate active:" in out["systemMessage"]
+
+
+def test_告知にプラグインのバージョンを出す(tmp_path, monkeypatch):
+    """0.3.2: 設定は新しいがコードは古い、という状態を告知から判別できるようにする。"""
+    from lib import config
+    monkeypatch.setattr(config, "plugin_version", lambda: "9.9.9")
+    out = session_start.handle(repo(tmp_path, {"gate": GATE}))
+    assert out["systemMessage"] == f"[loop-hooks 9.9.9] gate active: {GATE['command']}"

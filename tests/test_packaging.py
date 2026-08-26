@@ -94,3 +94,11 @@ def test_自リポジトリのゲート設定が有効で検証ランナーを�
     assert "*.py" in gate["watch"] and "skills/**/*.md" in gate["watch"]
     assert ".github/**/*.yml" in gate["watch"]
     assert "docs/*" in gate["ignore"]
+
+
+def test_statusスキルはCLAUDE_PLUGIN_DATAをコマンドに渡す():
+    """0.3.2: `!` コマンドの環境にはこの変数が無いので、置換で明示的に渡す。"""
+    skill = (ROOT / "skills" / "status" / "SKILL.md").read_text(encoding="utf-8")
+    assert 'CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" uv run' in skill
+    head = skill.split("---")[1]
+    assert 'CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" uv run' in head, "allowed-tools も同じ形に"

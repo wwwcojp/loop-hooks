@@ -228,3 +228,17 @@ def test_gitでないディレクトリの設定も_sourceはworking_tree(tmp_pa
 def test_設定エラーには_sourceが付かない(tmp_path):
     cwd = write(tmp_path, {"gate": {"timeout_sec": 30}})
     assert "_source" not in config.load(cwd)
+
+
+def test_plugin_versionはplugin_jsonのversionを返す():
+    """0.3.2: 告知と status にプラグインのバージョンを出す。"""
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    expected = json.loads((root / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    assert config.plugin_version() == expected["version"]
+
+
+def test_plugin_versionは読めなければNone(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "PLUGIN_JSON", tmp_path / "missing.json")
+    assert config.plugin_version() is None

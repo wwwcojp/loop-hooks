@@ -28,6 +28,7 @@ def collect(cwd: str) -> dict:
         "command": None, "on": None, "watch": None, "ignore": None, "timeout_sec": None,
         "fingerprint": None, "verified": None, "will_run": None, "blocked": None,
         "recent": _recent(root or cwd),
+        "state_dir": str(state.state_dir()),
     }
     if cfg is None:
         return info
@@ -54,7 +55,8 @@ def _row(label: str, value) -> str:
 
 
 def render(info: dict) -> str:
-    lines = ["loop-hooks status"]
+    version = config.plugin_version()
+    lines = [f"loop-hooks status ({version})" if version else "loop-hooks status"]
     lines.append(_row("repo", info["root"] or f"{info['cwd']} (not a git repository)"))
     if info["config_error"]:
         lines.append(_row("config", f"gate disabled: {info['config_error']}"))
@@ -80,6 +82,7 @@ def render(info: dict) -> str:
         blocked_text = ("yes (this state was already blocked once)" if info["blocked"]
                         else "no")
         lines.append(_row("blocked", blocked_text))
+    lines.append(_row("records", info["state_dir"]))
     if info["recent"]:
         rows = [_safe_format_recent(r) for r in info["recent"]]
         lines.append(_row("recent", rows[0]))

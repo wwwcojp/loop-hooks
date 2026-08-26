@@ -46,7 +46,9 @@ def handle(event: dict) -> dict | None:
         return {"systemMessage": config.DISABLED_PREFIX
                                  + config.NOT_GIT_MESSAGE.format(cwd=cwd)}
     gate_cfg = cfg["gate"]
-    lines = [f"[loop-hooks] gate active: {gate_cfg['command']}"]
+    version = config.plugin_version()
+    tag = f"[loop-hooks {version}]" if version else "[loop-hooks]"
+    lines = [f"{tag} gate active: {gate_cfg['command']}"]
     if cfg.get("_notice"):
         lines.append(f"[loop-hooks] {cfg['_notice']}")
         rec["note"] = cfg["_notice"][:80]

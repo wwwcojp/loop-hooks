@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
-from lib import fingerprint, log, state, status  # noqa: E402
+from lib import config, fingerprint, log, state, status  # noqa: E402
 
 GATE = {"command": "touch SHOULD_NOT_RUN", "watch": ["*.ts"], "ignore": ["*.md"]}
 
@@ -142,3 +142,24 @@ def test_recentに既にranがあれば重複して足さない(tmp_path):
     log.append(root, {"event": "Stop", "decision": "skipped"})
     recent = status.collect(root)["recent"]
     assert [r["decision"] for r in recent] == ["skipped", "ran"]
+
+
+def test_stateに読んだ置き場を表示する(tmp_path, monkeypatch):
+    """0.3.2: どこの記録を読んだかを常に見せる(静かな失敗を無くす)。"""
+    monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(tmp_path / "data"))
+    info = status.collect(str(repo(tmp_path)))
+    assert info["state_dir"] == str(tmp_path / "data" / "state")
+    out = status.render(info)
+    assert f"records   {tmp_path / 'data' / 'state'}" in out
+
+
+def test_見出しにプラグインのバージョンを出す(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "plugin_version", lambda: "9.9.9")
+    out = status.render(status.collect(str(repo(tmp_path))))
+    assert out.splitlines()[0] == "loop-hooks status (9.9.9)"
+
+
+def test_バージョンが取れなくても見出しは出る(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "plugin_version", lambda: None)
+    out = status.render(status.collect(str(repo(tmp_path))))
+    assert out.splitlines()[0] == "loop-hooks status"

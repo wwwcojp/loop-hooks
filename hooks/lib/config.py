@@ -10,6 +10,8 @@ DISABLED_PREFIX = "[loop-hooks] gate disabled: "
 NOT_GIT_MESSAGE = ("not a git repository ({cwd}). loop-hooks uses git to detect changes.")
 
 CONFIG_NAME = ".loop-hooks.json"
+# プラグイン自身のバージョン。Claude Code は環境変数で渡さないので plugin.json を読む
+PLUGIN_JSON = Path(__file__).resolve().parent.parent.parent / ".claude-plugin" / "plugin.json"
 EVENTS = ("stop", "subagent_stop", "teammate_idle")
 # hooks.json の timeout(3600)より確実に短くする。Claude Code 側が先にフックを殺すと
 # プロセスグループの後始末(killpg)が走らず、テストランナーが孤児として残る。
@@ -101,3 +103,13 @@ def _validate(raw) -> dict:
                           f"{', '.join(EVENTS)}"}
 
     return {"gate": merged}
+
+
+def plugin_version() -> str | None:
+    """plugin.json の version。読めなければ None(告知や status を止めない)。"""
+    try:
+        data = json.loads(PLUGIN_JSON.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    v = data.get("version") if isinstance(data, dict) else None
+    return v if isinstance(v, str) and v else None
