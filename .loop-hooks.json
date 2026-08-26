@@ -2,7 +2,7 @@
   "gate": {
     "command": "uv run python scripts/verify.py quick",
     "timeout_sec": 120,
-    "watch": ["*.py", "*.json", "*.toml", "skills/**/*.md"],
+    "watch": ["*.py", "*.json", "*.toml", "skills/**/*.md", ".github/**/*.yml"],
     "ignore": [".superpowers/*", "docs/*"]
   }
 }

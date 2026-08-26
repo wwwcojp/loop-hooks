@@ -29,5 +29,5 @@ Claude Code のフックプラグイン。ターン終了時にリポジトリ�
 
 - テスト: `uv run pytest -q`(`tests/conftest.py` が状態ディレクトリを tmp に隔離する)
 - 検証一式: `uv run python scripts/verify.py quick`
-- 状態の確認: `uv run hooks/gate.py --status .` または `/loop-hooks:status`
+- 状態の確認: `/loop-hooks:status`(ターミナルから `uv run hooks/gate.py --status .` を打つ場合は `CLAUDE_PLUGIN_DATA` が無いため `~/.cache/loop-hooks` 側を読む。フックが書いた記録とは別の置き場なので、`recent` が空に見えても異常ではない)
 - 実ホームパスをソース・コミットメッセージに書かない(CI が落ちる)。プレースホルダーは `/home/USER`

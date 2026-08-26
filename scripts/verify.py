@@ -21,6 +21,7 @@ LEAK_REGEX = r"/(home|Users)/(?!USER\b|alice\b|user\b)[A-Za-z_][A-Za-z0-9._-]*"
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FAIL_OUTPUT_TAIL = 4000
+CHECK_TIMEOUT_SEC = 600
 
 
 @dataclass(frozen=True)
@@ -42,7 +43,12 @@ STAGES: dict[str, list[Check]] = {
 
 def _run(check: Check, repo_root: Path) -> tuple[bool, str]:
     try:
-        r = subprocess.run(check.cmd, cwd=repo_root, capture_output=True, text=True)
+        r = subprocess.run(
+            check.cmd, cwd=repo_root, capture_output=True, text=True,
+            timeout=CHECK_TIMEOUT_SEC,
+        )
+    except subprocess.TimeoutExpired:
+        return False, f"timed out after {CHECK_TIMEOUT_SEC}s"
     except OSError as exc:
         return False, f"could not run: {exc}"
     return r.returncode in check.ok_codes, (r.stdout or "") + (r.stderr or "")

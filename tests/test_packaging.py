@@ -92,4 +92,5 @@ def test_自リポジトリのゲート設定が有効で検証ランナーを�
     gate = cfg["gate"]
     assert gate["command"] == "uv run python scripts/verify.py quick"
     assert "*.py" in gate["watch"] and "skills/**/*.md" in gate["watch"]
+    assert ".github/**/*.yml" in gate["watch"]
     assert "docs/*" in gate["ignore"]

@@ -96,3 +96,9 @@ def test_mainは成功で0失敗で1(monkeypatch):
     monkeypatch.setitem(verify.STAGES, "ng", [verify.Check("a", ["false"])])
     assert verify.main(["ok"]) == 0
     assert verify.main(["ng"]) == 1
+
+
+def test_タイムアウトしたチェックは失敗扱い(tmp_path, monkeypatch):
+    monkeypatch.setattr(verify, "CHECK_TIMEOUT_SEC", 1)
+    checks = [verify.Check("slow", ["sleep", "5"])]
+    assert verify.run_stage("quick", checks, repo_root=tmp_path) is False

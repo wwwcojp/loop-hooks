@@ -83,7 +83,7 @@ quick: leak チェック → ruff check hooks tests scripts → pytest -q
   "gate": {
     "command": "uv run python scripts/verify.py quick",
     "timeout_sec": 120,
-    "watch": ["*.py", "*.json", "*.toml", "skills/**/*.md"],
+    "watch": ["*.py", "*.json", "*.toml", "skills/**/*.md", ".github/**/*.yml"],
     "ignore": [".superpowers/*", "docs/*"]
   }
 }
@@ -92,6 +92,8 @@ quick: leak チェック → ruff check hooks tests scripts → pytest -q
 - `skills/**/*.md` を watch に含めるのは `test_packaging.py` が SKILL.md の frontmatter を
   検査するため。`docs/` と README は除外(文書だけのターンで 8 秒払わない)。
 - 0.3.0 で `watch` 既定は全ファイルになったが、上記の理由で明示する。
+- `.github/**/*.yml` を含めるのは `test_verify.py` の CI ミラーテストが `ci.yml` を読むため
+  (最終レビューでの追加)。
 
 ### 2.3 ドッグフーディング規約 `CLAUDE.md`
 
