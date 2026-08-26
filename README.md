@@ -322,6 +322,10 @@ echo '{"cwd":"'$PWD'","stop_hook_active":false}' | uv run ~/loop-hooks/hooks/gat
 uv run pytest -v
 ```
 
+The repository gates itself with this plugin: `uv run python scripts/verify.py quick`
+runs the same checks as CI (home-path leak check, ruff check/format, import-linter,
+pyright, pytest).
+
 ## Limitations
 
 - Requires a git repository.

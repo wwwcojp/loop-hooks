@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.4.0] - 2026-08-27
+
+### Added
+- **More checks in the repository's own gate and CI**, all deterministic and fast:
+  `ruff format --check`, ruff's `S` (bandit) rules with the three designed `subprocess`
+  call sites accepted by line-level `noqa` and a stated reason, import-linter contracts
+  for `hooks/lib` (layering, no import of entry points, `subprocess` confined to
+  `fingerprint`), and pyright in strict mode. `quick` now runs six checks in about
+  11.5 seconds (measured).
+- **CI `security` job**: zizmor over the workflows and pip-audit over the exported lock
+  file. Workflow actions are pinned to commit SHAs, `permissions: contents: read` is
+  explicit, and Dependabot keeps the pins current.
+- `scripts/verify.py`: `Check` gained `cwd` / `env`, and `shell_line()` is the single
+  source for the CI mirror test.
+
+### Changed
+- Source reformatted with `ruff format` (no behaviour change).
+
+### Upgrading
+- Nothing to do. No entry-point files or hook definitions changed; no restart needed.
+
 ## [0.3.2] - 2026-08-27
 
 ### Fixed

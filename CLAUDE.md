@@ -22,7 +22,7 @@ Claude Code のフックプラグイン。ターン終了時にリポジトリ�
 4. **プラグインを更新したら Claude Code を再起動する。** 再起動後の最初のセッションで
    `[loop-hooks <version>] gate active: uv run python scripts/verify.py quick` が出ることが、
    更新が効いた確認(version がプラグイン本体の新旧を示す)。出なければ `/loop-hooks:status`。
-5. `quick` は CI と同じ 3 コマンド(leak → ruff → pytest)。CI を変えるときは
+5. `quick` は CI の `test` ジョブと同じ 6 チェック(leak → ruff check → ruff format → import-linter → pyright → pytest)。CI を変えるときは
    `scripts/verify.py` も変える(`tests/test_verify.py::test_quick_stage_mirrors_ci` が検出する)。
 
 ## 開発

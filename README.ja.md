@@ -302,6 +302,8 @@ echo '{"cwd":"'$PWD'","stop_hook_active":false}' | uv run ~/loop-hooks/hooks/gat
 uv run pytest -v
 ```
 
+このリポジトリはこのプラグイン自身をゲートしている。`uv run python scripts/verify.py quick` は CI の `test` ジョブと同じチェックを実行する(ホームパスリーク検査、ruff check/format、import-linter、pyright、pytest)。
+
 ## 制限
 
 - git リポジトリであることが必要。
