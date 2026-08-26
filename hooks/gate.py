@@ -121,7 +121,10 @@ def handle(event: dict) -> dict | None:
         return None
     current = fingerprint.compute(root, gate_cfg)
     rec["fp"] = (current or "")[:12]
-    if current == state.read_verified(root):
+    if current is None:
+        # git が観測できない。skipped に倒すと無言でゲートが消えるので、走らせる側に倒す
+        rec["note"] = "fingerprint unavailable"
+    elif current == state.read_verified(root):
         log.append(root, {**rec, "decision": "skipped"})
         return None  # 前回グリーンから何も変わっていない
 
@@ -140,7 +143,7 @@ def handle(event: dict) -> dict | None:
         out = _refuse(hook_event, root, current, detail, event)
         rec["result"] = "warn" if "systemMessage" in out else "fail"
     if cfg.get("_notice"):
-        rec["note"] = cfg["_notice"][:80]
+        rec["note"] = "; ".join(filter(None, [rec.get("note"), cfg["_notice"][:80]]))
     log.append(root, rec)
     return _with_notice(out, root, cfg.get("_notice"))
 

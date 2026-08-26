@@ -560,3 +560,22 @@ def test_statusはgitリポジトリでなくても0で終わる(tmp_path):
                        capture_output=True, text=True, stdin=subprocess.DEVNULL)
     assert r.returncode == 0
     assert "not a git repository" in r.stdout
+
+
+# --- 0.3.1: fingerprint が取れないとき ---
+
+def test_fingerprintが取れなければ安全側でゲートを走らせる(tmp_path, monkeypatch):
+    """0.3.1: git 失敗で fp が None のとき、None == None(未検証)で skipped になっていた。"""
+    event = setup_repo(tmp_path, "false")
+    monkeypatch.setattr(fingerprint, "compute", lambda root, cfg: None)
+    out = gate.handle(event)
+    assert blocked(out) is not None
+    rec = log.tail(str(tmp_path), 1)[0]
+    assert rec["decision"] == "ran" and rec["note"] == "fingerprint unavailable"
+
+
+def test_fingerprintが取れないままpassしてもverifiedを書かない(tmp_path, monkeypatch):
+    event = setup_repo(tmp_path, "true")
+    monkeypatch.setattr(fingerprint, "compute", lambda root, cfg: None)
+    assert gate.handle(event) is None
+    assert state.read_verified(str(tmp_path)) is None
