@@ -5,7 +5,12 @@ description = "Change-gated verification for Claude Code: run your verify comman
 requires-python = ">=3.10"
 
 [dependency-groups]
-dev = ["pytest>=8.0", "ruff>=0.8", "tomli>=2.0; python_version < '3.11'"]
+dev = [
+    "import-linter>=2.13",
+    "pytest>=8.0",
+    "ruff>=0.8",
+    "tomli>=2.0; python_version < '3.11'",
+]
 
 [tool.ruff]
 line-length = 100
@@ -23,3 +28,28 @@ select = ["E", "F", "I", "W", "S"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["scripts"]
+
+[tool.importlinter]
+# 対象は lib パッケージのみ。入口(gate.py / session_start.py)はパッケージでないため
+# root_packages にできない(親 spec §3.2)。実行は hooks/ を cwd に PYTHONPATH=. で。
+root_packages = ["lib"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "lib は入口(gate / session_start)を import しない"
+type = "forbidden"
+source_modules = ["lib"]
+forbidden_modules = ["gate", "session_start"]
+
+[[tool.importlinter.contracts]]
+name = "subprocess を使うのは fingerprint だけ"
+type = "forbidden"
+source_modules = ["lib.config", "lib.hook_io", "lib.log", "lib.state", "lib.status"]
+forbidden_modules = ["subprocess"]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "lib の層(上が下に依存する)"
+type = "layers"
+layers = ["status", "log", "config", "fingerprint", "state", "hook_io"]
+containers = ["lib"]

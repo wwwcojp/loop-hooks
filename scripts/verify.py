@@ -49,6 +49,12 @@ STAGES: dict[str, list[Check]] = {
         Check("leak", ["git", "grep", "-nP", LEAK_REGEX, "--"], ok_codes=frozenset({1})),
         Check("lint", ["uv", "run", "ruff", "check", "hooks", "tests", "scripts"]),
         Check("format", ["uv", "run", "ruff", "format", "--check", "hooks", "tests", "scripts"]),
+        Check(
+            "imports",
+            ["uv", "run", "lint-imports", "--config", "../pyproject.toml"],
+            cwd="hooks",
+            env=(("PYTHONPATH", "."),),
+        ),
         Check("tests", ["uv", "run", "pytest", "-q"]),
     ],
 }

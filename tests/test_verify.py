@@ -140,3 +140,12 @@ def test_タイムアウトしたチェックは失敗扱い(tmp_path, monkeypat
     monkeypatch.setattr(verify, "CHECK_TIMEOUT_SEC", 1)
     checks = [verify.Check("slow", ["sleep", "5"])]
     assert verify.run_stage("quick", checks, repo_root=tmp_path) is False
+
+
+def test_quickにimport契約チェックがある():
+    names = [c.name for c in verify.STAGES["quick"]]
+    assert names.index("imports") == names.index("format") + 1
+    c = next(c for c in verify.STAGES["quick"] if c.name == "imports")
+    assert verify.shell_line(c) == (
+        "cd hooks && PYTHONPATH=. uv run lint-imports --config ../pyproject.toml"
+    )

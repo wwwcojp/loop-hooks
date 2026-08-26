@@ -30,5 +30,7 @@ jobs:
         run: uv run ruff check hooks tests scripts
       - name: Format
         run: uv run ruff format --check hooks tests scripts
+      - name: Import contracts
+        run: cd hooks && PYTHONPATH=. uv run lint-imports --config ../pyproject.toml
       - name: Test
         run: uv run pytest -q
