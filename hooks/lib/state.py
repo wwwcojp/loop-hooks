@@ -46,12 +46,16 @@ def _read_str(root: str, key: str) -> str | None:
 
 
 def _write(root: str, key: str, fingerprint: str) -> None:
-    data = _read(root)
-    data["root"] = root  # どのリポジトリの記録か辿れるように残す
-    data[key] = fingerprint
-    p = _path(root)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(data), encoding="utf-8")
+    """書込失敗は握る。状態が残せなくてもゲートの判定は続行する(次回また走るだけ)。"""
+    try:
+        data = _read(root)
+        data["root"] = root  # どのリポジトリの記録か辿れるように残す
+        data[key] = fingerprint
+        p = _path(root)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(data), encoding="utf-8")
+    except (OSError, TypeError, ValueError):
+        pass
 
 
 def read_verified(root: str) -> str | None:

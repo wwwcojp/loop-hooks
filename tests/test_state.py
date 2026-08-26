@@ -87,3 +87,12 @@ def test_検証済みとブロックは共存する():
     state.write_blocked(REPO, "fp-bad")
     assert state.read_verified(REPO) == "fp-good"
     assert state.read_blocked(REPO) == "fp-bad"
+
+
+def test_書き込めなくても例外を出さない(tmp_path, monkeypatch):
+    """0.3.1: lib は例外を外に出さない。状態が書けない環境でもゲートは動く。"""
+    blocked_dir = tmp_path / "file-not-dir"
+    blocked_dir.write_text("x", encoding="utf-8")  # ファイルなのでその下にディレクトリを作れない
+    monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(blocked_dir))
+    state.write_verified("/home/USER/repo", "abc")  # 例外にならない
+    assert state.read_verified("/home/USER/repo") is None
