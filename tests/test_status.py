@@ -122,3 +122,23 @@ def test_fingerprintがNoneならverifiedと比較してwill_run(tmp_path, monke
     without_verified_dir.mkdir()
     without_verified = repo(without_verified_dir)
     assert status.collect(str(without_verified))["will_run"] is False
+
+
+def test_recentには最新のran記録が必ず含まれる(tmp_path):
+    """0.3.1: skipped が 5 件続いても、最後に走った結果が status から消えない。"""
+    root = str(repo(tmp_path))
+    log.append(root, {"event": "Stop", "decision": "ran", "result": "fail", "ms": 1200})
+    for _ in range(8):
+        log.append(root, {"event": "Stop", "decision": "skipped"})
+    recent = status.collect(root)["recent"]
+    assert len(recent) == status.RECENT + 1
+    assert [r["decision"] for r in recent[:status.RECENT]] == ["skipped"] * status.RECENT
+    assert recent[-1]["decision"] == "ran" and recent[-1]["result"] == "fail"
+
+
+def test_recentに既にranがあれば重複して足さない(tmp_path):
+    root = str(repo(tmp_path))
+    log.append(root, {"event": "Stop", "decision": "ran", "result": "pass", "ms": 10})
+    log.append(root, {"event": "Stop", "decision": "skipped"})
+    recent = status.collect(root)["recent"]
+    assert [r["decision"] for r in recent] == ["skipped", "ran"]

@@ -6,6 +6,17 @@ config.load → fingerprint.compute → state)を辿るが、コマンドは実�
 from . import config, fingerprint, log, state
 
 RECENT = 5
+RECENT_SEARCH = 200  # 最新の ran をこの範囲まで遡って探す
+
+
+def _recent(root: str) -> list[dict]:
+    """直近 RECENT 件。その中に ran が無ければ、最新の ran を末尾に 1 件足す。"""
+    records = log.tail(root, RECENT_SEARCH)
+    recent = records[:RECENT]
+    if any(r.get("decision") == "ran" for r in recent):
+        return recent
+    last_ran = next((r for r in records[RECENT:] if r.get("decision") == "ran"), None)
+    return recent + [last_ran] if last_ran else recent
 
 
 def collect(cwd: str) -> dict:
@@ -16,7 +27,7 @@ def collect(cwd: str) -> dict:
         "config_source": None, "config_error": None, "notice": None,
         "command": None, "on": None, "watch": None, "ignore": None, "timeout_sec": None,
         "fingerprint": None, "verified": None, "will_run": None, "blocked": None,
-        "recent": log.tail(root or cwd, RECENT),
+        "recent": _recent(root or cwd),
     }
     if cfg is None:
         return info
