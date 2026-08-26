@@ -292,12 +292,14 @@ terminal: `uv run /path/to/loop-hooks/hooks/gate.py --status [repo]`. It shows w
 the configuration was read from, what the gate runs, whether it will run at the next
 stop, and the last five decisions.
 
-**No `[loop-hooks] gate active:` line at session start** in a repository that has
+**No `[loop-hooks <version>] gate active:` line at session start** in a repository that has
 `.loop-hooks.json`: the plugin is not loaded in this session. Hook definitions are
 snapshotted when a session starts, so restart Claude Code after updating the plugin.
 
-**Decision log:** `$CLAUDE_PLUGIN_DATA/state/<key>.log.jsonl` (or
-`~/.cache/loop-hooks/state/`), one JSON line per decision, newest last.
+**Decision log:** `$CLAUDE_PLUGIN_DATA/state/<key>.log.jsonl`, one JSON line per
+decision, newest last. `--status` prints the directory it read as `records`; from a
+terminal (no `CLAUDE_PLUGIN_DATA`) it looks for `~/.claude/plugins/data/loop-hooks-*/`
+and falls back to `~/.cache/loop-hooks/state/`.
 
 ## Manual smoke test
 

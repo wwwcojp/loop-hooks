@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.2] - 2026-08-27
+
+### Fixed
+- **`/loop-hooks:status` now reads the same records the hooks write.** The skill's
+  inline command did not receive `CLAUDE_PLUGIN_DATA`, so it read `~/.cache/loop-hooks`
+  and reported `(no runs recorded)`. The skill now passes the variable explicitly, and
+  `state_dir()` falls back to `~/.claude/plugins/data/loop-hooks-*/` (honouring
+  `CLAUDE_CONFIG_DIR`) before the XDG cache, so a terminal `gate.py --status` finds the
+  hook's records too. `--status` prints the directory it read as a `records` line.
+- **The session-start line and `--status` show the plugin version**
+  (`[loop-hooks 0.3.2] gate active: …`, `loop-hooks status (0.3.2)`), so an outdated
+  plugin is visible even when the repository's configuration is current.
+
+### Upgrading
+- No configuration changes. Restart Claude Code after updating so the new
+  `SessionStart` output and skill take effect.
+
 ## [0.3.1] - 2026-08-26
 
 ### Added

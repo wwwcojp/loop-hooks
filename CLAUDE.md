@@ -20,8 +20,8 @@ Claude Code のフックプラグイン。ターン終了時にリポジトリ�
    `disableAllHooks` を使わない。設定は HEAD 版が優先されるので、作業ツリーで書き換えても
    ゲートは変わらない(0.2.1)。
 4. **プラグインを更新したら Claude Code を再起動する。** 再起動後の最初のセッションで
-   `[loop-hooks] gate active: uv run python scripts/verify.py quick` が出ることが、
-   更新が効いた確認。出なければ `/loop-hooks:status`。
+   `[loop-hooks <version>] gate active: uv run python scripts/verify.py quick` が出ることが、
+   更新が効いた確認(version がプラグイン本体の新旧を示す)。出なければ `/loop-hooks:status`。
 5. `quick` は CI と同じ 3 コマンド(leak → ruff → pytest)。CI を変えるときは
    `scripts/verify.py` も変える(`tests/test_verify.py::test_quick_stage_mirrors_ci` が検出する)。
 
@@ -29,5 +29,5 @@ Claude Code のフックプラグイン。ターン終了時にリポジトリ�
 
 - テスト: `uv run pytest -q`(`tests/conftest.py` が状態ディレクトリを tmp に隔離する)
 - 検証一式: `uv run python scripts/verify.py quick`
-- 状態の確認: `/loop-hooks:status`(ターミナルから `uv run hooks/gate.py --status .` を打つ場合は `CLAUDE_PLUGIN_DATA` が無いため `~/.cache/loop-hooks` 側を読む。フックが書いた記録とは別の置き場なので、`recent` が空に見えても異常ではない)
+- 状態の確認: `/loop-hooks:status`(ターミナルなら `uv run hooks/gate.py --status .`。どちらも `records` 行に読んだ置き場が出る)
 - 実ホームパスをソース・コミットメッセージに書かない(CI が落ちる)。プレースホルダーは `/home/USER`

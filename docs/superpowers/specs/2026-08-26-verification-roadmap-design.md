@@ -136,7 +136,7 @@ git 失敗時の fp 空記録 / `recent` が `skipped` で埋まる問題(§5.3)
 - `quick` の所要時間: 約 9〜11 秒(手元 8.95 秒、ゲート実測 10.8 秒)。予算 30 秒の内側。
 - ミラーテストは `ci.yml` の Lint 行を戻すと FAIL することを確認済み(実装時)。
 
-**発見した欠陥(0.3.2 候補):** `/loop-hooks:status` スキルの `!` コマンドには `CLAUDE_PLUGIN_DATA` が
+**発見した欠陥(0.3.2 で修正済み、2026-08-27):** `/loop-hooks:status` スキルの `!` コマンドには `CLAUDE_PLUGIN_DATA` が
 渡らないため、`~/.cache/loop-hooks` 側を読んで `recent (no runs recorded)` になる。フックが書いた
 記録(`$CLAUDE_PLUGIN_DATA/state/`)を表示できていない。対策候補: SKILL.md で `${CLAUDE_PLUGIN_DATA}`
 を明示的に渡す(プラグイン変数の置換対象か要確認)、または `state_dir()` に「`CLAUDE_PLUGIN_DATA`

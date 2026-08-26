@@ -1,6 +1,6 @@
 [project]
 name = "loop-hooks"
-version = "0.3.1"
+version = "0.3.2"
 description = "Change-gated verification for Claude Code: run your verify command at end of turn, but only when something actually changed"
 requires-python = ">=3.10"
 

@@ -272,12 +272,14 @@ $CLAUDE_PLUGIN_DATA/state/<リポジトリパスのsha16>.json
 ターミナルから `uv run /path/to/loop-hooks/hooks/gate.py --status [repo]` を実行する。設定が
 どこから読まれたか、ゲートが何を実行するか、次の stop で走るか、直近5件の判定を表示する。
 
-**セッション開始時に `[loop-hooks] gate active:` の行が出ない**(`.loop-hooks.json` は
+**セッション開始時に `[loop-hooks <version>] gate active:` の行が出ない**(`.loop-hooks.json` は
 あるのに): このセッションではプラグインが読み込まれていない。フック定義はセッション
 開始時にスナップショットされるため、プラグインを更新した後は Claude Code を再起動する。
 
-**判定ログ:** `$CLAUDE_PLUGIN_DATA/state/<key>.log.jsonl`(または
-`~/.cache/loop-hooks/state/`)。1判定につき1行の JSON、最新が最後。
+**判定ログ:** `$CLAUDE_PLUGIN_DATA/state/<key>.log.jsonl`。1判定につき1行の JSON、最新が
+最後。`--status` は読んだ置き場を `records` 行に表示する。ターミナルから(`CLAUDE_PLUGIN_DATA`
+無しで)実行した場合は `~/.claude/plugins/data/loop-hooks-*/` を探し、無ければ
+`~/.cache/loop-hooks/state/` を読む。
 
 ## 手動スモーク
 
