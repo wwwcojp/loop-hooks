@@ -3,6 +3,7 @@
 「前回グリーンだった時点から変わったか」を、編集の経路(Edit/Write/Bash/git操作/
 フォーマッタ)に依存せず判定するための土台。
 """
+
 import fnmatch
 import hashlib
 import subprocess
@@ -14,8 +15,7 @@ GIT_TIMEOUT_SEC = 30
 def _git(cwd: str, *args: str) -> bytes | None:
     """gitの標準出力を返す。失敗したら None。"""
     try:
-        r = subprocess.run(("git",) + args, cwd=cwd, capture_output=True,
-                           timeout=GIT_TIMEOUT_SEC)
+        r = subprocess.run(("git",) + args, cwd=cwd, capture_output=True, timeout=GIT_TIMEOUT_SEC)
     except (OSError, subprocess.TimeoutExpired):
         return None
     return r.stdout if r.returncode == 0 else None

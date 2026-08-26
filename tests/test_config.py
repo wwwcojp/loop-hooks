@@ -1,4 +1,5 @@
 """config.load: 設定ファイルの読取と検証。"""
+
 import json
 import sys
 from pathlib import Path
@@ -196,6 +197,7 @@ def test_gitでないディレクトリでは通知が無い(tmp_path):
 
 # --- 0.3.0: 既定値と _source ---
 
+
 def test_watchの既定は全ファイル(tmp_path):
     cwd = write(tmp_path, {"gate": {"command": "echo ok"}})
     assert config.load(cwd)["gate"]["watch"] == ["*"]
@@ -204,8 +206,18 @@ def test_watchの既定は全ファイル(tmp_path):
 def test_ignoreの既定に依存ディレクトリとドキュメントが含まれる(tmp_path):
     cwd = write(tmp_path, {"gate": {"command": "echo ok"}})
     ignore = config.load(cwd)["gate"]["ignore"]
-    for pat in ("node_modules/*", "*/node_modules/*", ".venv/*", "*/.venv/*",
-                "dist/*", "build/*", "target/*", ".claude/*", ".loop/*", "*.md"):
+    for pat in (
+        "node_modules/*",
+        "*/node_modules/*",
+        ".venv/*",
+        "*/.venv/*",
+        "dist/*",
+        "build/*",
+        "target/*",
+        ".claude/*",
+        ".loop/*",
+        "*.md",
+    ):
         assert pat in ignore, pat
 
 
@@ -234,6 +246,7 @@ def test_plugin_versionはplugin_jsonのversionを返す():
     """0.3.2: 告知と status にプラグインのバージョンを出す。"""
     import json
     from pathlib import Path
+
     root = Path(__file__).resolve().parent.parent
     expected = json.loads((root / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
     assert config.plugin_version() == expected["version"]

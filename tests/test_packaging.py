@@ -1,4 +1,5 @@
 """配布物の検査: hooks.json が実在するスクリプトを指し、公開に必要な文書が揃っているか。"""
+
 import json
 from pathlib import Path
 
@@ -41,6 +42,7 @@ def test_英語READMEが日本語版へ導線を持つ():
 
 def test_pyprojectとplugin_jsonのバージョンが一致する():
     import re
+
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     declared = re.search(r'^version = "([^"]+)"', pyproject, re.MULTILINE).group(1)
     plugin = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
@@ -55,8 +57,10 @@ def _hook_entries():
 def test_ゲートフックのtimeoutはgate_timeout_secの上限より長い():
     """Claude Code 側が先にフックを殺すと、プロセスグループの後始末が走らない。"""
     import sys
+
     sys.path.insert(0, str(ROOT / "hooks"))
     from lib import config
+
     for hook in _hook_entries():
         if "gate.py" in hook["command"]:
             assert hook["timeout"] > config.TIMEOUT_MAX_SEC
@@ -78,15 +82,17 @@ def test_statusスキルが存在しnameがstatus():
     skill = (ROOT / "skills" / "status" / "SKILL.md").read_text(encoding="utf-8")
     head = skill.split("---")[1]
     assert "name: status" in head
-    assert "gate.py\" --status" in skill
+    assert 'gate.py" --status' in skill
     assert "${CLAUDE_PLUGIN_ROOT}" in skill and "${CLAUDE_PROJECT_DIR}" in skill
 
 
 def test_自リポジトリのゲート設定が有効で検証ランナーを指す():
     """spec §2.2: loop-hooks 自身にゲートを掛ける(ドッグフーディング)。"""
     import sys
+
     sys.path.insert(0, str(ROOT / "hooks"))
     from lib import config
+
     cfg = config.load(str(ROOT))
     assert cfg is not None and "_error" not in cfg, cfg
     gate = cfg["gate"]

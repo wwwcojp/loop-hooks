@@ -3,6 +3,7 @@
 --status が「なぜ走らなかったか」を答えるための唯一の一次情報。書込の失敗は
 ゲートの判定に影響させない(全て握る)。
 """
+
 import datetime
 import json
 import os
@@ -10,7 +11,7 @@ from pathlib import Path
 
 from . import state
 
-MAX_LINES = 1200   # これを超えたら…
+MAX_LINES = 1200  # これを超えたら…
 KEEP_LINES = 1000  # …直近この行数に切り詰める(償却的に安い)
 
 

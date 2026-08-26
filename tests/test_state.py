@@ -1,4 +1,5 @@
 """state: 「最後にゲートを通った時点のフィンガープリント」をリポジトリの外に持つ。"""
+
 import json
 import sys
 from pathlib import Path
@@ -75,6 +76,7 @@ def test_verifiedが文字列でなければNone(tmp_path, monkeypatch):
 
 # --- TeammateIdle 用の「一度だけブロックする」ガード ---
 
+
 def test_初期状態ではブロック記録が無い():
     assert state.read_blocked(REPO) is None
 
@@ -127,6 +129,7 @@ def test_プラグインのデータ置き場はCLAUDE_CONFIG_DIRを優先する
 
 def test_データ置き場が複数あれば新しい方を使う(monkeypatch, tmp_path):
     import os
+
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     monkeypatch.delenv("CLAUDE_PLUGIN_DATA", raising=False)
     monkeypatch.setenv("HOME", str(tmp_path))

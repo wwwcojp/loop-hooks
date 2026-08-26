@@ -1,4 +1,5 @@
 """Hookの標準入出力。stdinイベント読取とJSON出力を担う。"""
+
 import json
 import sys
 

@@ -8,6 +8,7 @@ evidence は書かない。「走ったか・なぜ走らなかったか」は�
 (`/loop-hooks:status`)が持つ。ここは終了コードと出力だけを返す。
 stdlib のみ。hooks/ は import しない(ゲート対象とゲート実行者を混ぜない)。
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -44,7 +45,10 @@ STAGES: dict[str, list[Check]] = {
 def _run(check: Check, repo_root: Path) -> tuple[bool, str]:
     try:
         r = subprocess.run(
-            check.cmd, cwd=repo_root, capture_output=True, text=True,
+            check.cmd,
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
             timeout=CHECK_TIMEOUT_SEC,
         )
     except subprocess.TimeoutExpired:

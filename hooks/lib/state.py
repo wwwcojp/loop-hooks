@@ -9,6 +9,7 @@
 (手動実行など)では XDG のキャッシュ配下。いずれにせよ利用者のリポジトリには
 書かないので、.gitignore への追記を強いることがない。
 """
+
 import hashlib
 import json
 import os
@@ -36,8 +37,11 @@ def _plugin_data_dir() -> Path | None:
     """`<config dir>/plugins/data/loop-hooks-*/state` のうち最も新しいもの。無ければ None。"""
     try:
         config_dir = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
-        candidates = [p / "state" for p in (config_dir / "plugins" / "data").glob("loop-hooks-*")
-                      if (p / "state").is_dir()]
+        candidates = [
+            p / "state"
+            for p in (config_dir / "plugins" / "data").glob("loop-hooks-*")
+            if (p / "state").is_dir()
+        ]
         if not candidates:
             return None
         return max(candidates, key=lambda p: p.stat().st_mtime)

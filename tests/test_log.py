@@ -1,4 +1,5 @@
 """log: 判定ログの追記と読出。リポジトリの外に置き、失敗してもゲートを止めない。"""
+
 import json
 import stat
 import sys
@@ -90,6 +91,7 @@ def test_書き込めなくても例外を出さない(tmp_path, monkeypatch):
 def test_切詰めは一時ファイル経由で差し替える(monkeypatch):
     """0.3.1: 途中で落ちてもログが欠けないよう、書いてから os.replace する。"""
     import os
+
     replaced: list[tuple[str, str]] = []
     real_replace = os.replace
 

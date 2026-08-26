@@ -11,6 +11,7 @@
 ゲートは無言で消えることがある。「gate active」の1行が出ないセッションはその
 状態だと分かる — それがこの入口の存在理由。
 """
+
 import sys
 from pathlib import Path
 
@@ -43,8 +44,7 @@ def handle(event: dict) -> dict | None:
         return {"systemMessage": config.DISABLED_PREFIX + cfg["_error"]}
     if root is None:
         log.append(cwd, {**rec, "decision": "disabled", "note": "not a git repository"})
-        return {"systemMessage": config.DISABLED_PREFIX
-                                 + config.NOT_GIT_MESSAGE.format(cwd=cwd)}
+        return {"systemMessage": config.DISABLED_PREFIX + config.NOT_GIT_MESSAGE.format(cwd=cwd)}
     gate_cfg = cfg["gate"]
     version = config.plugin_version()
     tag = f"[loop-hooks {version}]" if version else "[loop-hooks]"

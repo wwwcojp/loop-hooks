@@ -1,4 +1,5 @@
 """fingerprint: watch対象の現在状態をgitで観測して要約する。"""
+
 import subprocess
 import sys
 from pathlib import Path
@@ -10,8 +11,9 @@ GATE = {"watch": ["*.ts", "package.json"], "ignore": [".loop/*", "*.md", "docs/*
 
 
 def git(cwd: Path, *args: str) -> str:
-    return subprocess.run(("git",) + args, cwd=cwd, capture_output=True,
-                          text=True, check=True).stdout.strip()
+    return subprocess.run(
+        ("git",) + args, cwd=cwd, capture_output=True, text=True, check=True
+    ).stdout.strip()
 
 
 def make_repo(tmp_path: Path) -> Path:
@@ -31,6 +33,7 @@ def fp(root: Path) -> str:
 
 # --- repo_root ---
 
+
 def test_gitリポジトリでなければNone(tmp_path):
     assert fingerprint.repo_root(str(tmp_path)) is None
 
@@ -43,6 +46,7 @@ def test_サブディレクトリからでもリポジトリルートを返す(t
 
 
 # --- is_watched ---
+
 
 def test_is_watched_watchに一致すれば対象():
     assert fingerprint.is_watched("server/main.ts", GATE) is True
@@ -59,6 +63,7 @@ def test_is_watched_どちらにも無ければ対象外():
 
 
 # --- compute ---
+
 
 def test_変更が無ければ同じ値を返す(tmp_path):
     repo = make_repo(tmp_path)

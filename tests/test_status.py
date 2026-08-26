@@ -1,4 +1,5 @@
 """status: ゲートの状態を集めて人間向けに整形する。コマンドは実行しない。"""
+
 import json
 import subprocess
 import sys
@@ -132,7 +133,7 @@ def test_recentには最新のran記録が必ず含まれる(tmp_path):
         log.append(root, {"event": "Stop", "decision": "skipped"})
     recent = status.collect(root)["recent"]
     assert len(recent) == status.RECENT + 1
-    assert [r["decision"] for r in recent[:status.RECENT]] == ["skipped"] * status.RECENT
+    assert [r["decision"] for r in recent[: status.RECENT]] == ["skipped"] * status.RECENT
     assert recent[-1]["decision"] == "ran" and recent[-1]["result"] == "fail"
 
 

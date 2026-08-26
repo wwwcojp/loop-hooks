@@ -11,6 +11,7 @@
 再入(stop_hook_active)で再び失敗した場合は、閉じ込めずに警告だけ出して通す。
 検証済みの記録は更新しないので、次のターンの終了時に再びゲートが掛かる。
 """
+
 import os
 import signal
 import subprocess
@@ -48,8 +49,12 @@ def _kill_group(proc: subprocess.Popen) -> None:
 def run_gate(cmd: str, cwd: str, timeout: int) -> tuple[bool, str]:
     try:
         proc = subprocess.Popen(
-            cmd, shell=True, cwd=cwd, text=True,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            cmd,
+            shell=True,
+            cwd=cwd,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             start_new_session=True,  # 専用のプロセスグループを作り、まとめて殺せるようにする
         )
     except OSError as exc:
@@ -69,12 +74,14 @@ def _excerpt(out: str) -> str:
     if len(out) <= limit:
         return out
     dropped = len(out) - limit
-    return (out[:OUTPUT_HEAD_CHARS] + f"\n... [{dropped} characters truncated] ...\n"
-            + out[-OUTPUT_TAIL_CHARS:])
+    return (
+        out[:OUTPUT_HEAD_CHARS]
+        + f"\n... [{dropped} characters truncated] ...\n"
+        + out[-OUTPUT_TAIL_CHARS:]
+    )
 
 
-def _refuse(hook_event: str, root: str, current: str | None,
-            detail: str, event: dict) -> dict:
+def _refuse(hook_event: str, root: str, current: str | None, detail: str, event: dict) -> dict:
     """検証に失敗したときの応答。イベントごとに形式が違う。
 
     同じフィンガープリントは2度ブロックしない。フィンガープリントが同じなら
@@ -92,8 +99,9 @@ def _refuse(hook_event: str, root: str, current: str | None,
     if hook_event == "TeammateIdle":
         # teammate は JSON では止められない(continue:false は teammate 自体を終わらせる)
         return {"_exit_code": 2, "_stderr": FEEDBACK + detail}
-    return {"hookSpecificOutput": {"hookEventName": hook_event,
-                                   "additionalContext": FEEDBACK + detail}}
+    return {
+        "hookSpecificOutput": {"hookEventName": hook_event, "additionalContext": FEEDBACK + detail}
+    }
 
 
 def handle(event: dict) -> dict | None:
@@ -113,8 +121,7 @@ def handle(event: dict) -> dict | None:
         return {"systemMessage": config.DISABLED_PREFIX + cfg["_error"]}
     if root is None:
         log.append(cwd, {**rec, "decision": "disabled", "note": "not a git repository"})
-        return {"systemMessage": config.DISABLED_PREFIX
-                                 + config.NOT_GIT_MESSAGE.format(cwd=cwd)}
+        return {"systemMessage": config.DISABLED_PREFIX + config.NOT_GIT_MESSAGE.format(cwd=cwd)}
 
     gate_cfg = cfg["gate"]
     if key not in gate_cfg["on"]:
@@ -162,6 +169,7 @@ def _with_notice(out: dict, root: str, notice: str | None) -> dict | None:
 def status_main(target: str) -> int:
     """`--status` の本体。表示ツールであって判定ツールではない: stdin を読まず、常に 0。"""
     from lib import status  # 表示専用。ゲート経路では読み込まない(0.3.0 spec §2)
+
     try:
         print(status.render(status.collect(target)))
     except Exception as exc:  # 表示が落ちてもゲートには関係ない

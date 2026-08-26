@@ -1,4 +1,5 @@
 """gate: 前回グリーンから変化していれば検証を実行し、失敗ならターンを終わらせない。"""
+
 import json
 import subprocess
 import sys
@@ -17,8 +18,7 @@ def git(cwd: Path, *args: str) -> None:
     subprocess.run(("git",) + args, cwd=cwd, capture_output=True, check=True)
 
 
-def setup_repo(tmp_path: Path, command: str, timeout_sec: int = 10,
-               commit: bool = True) -> dict:
+def setup_repo(tmp_path: Path, command: str, timeout_sec: int = 10, commit: bool = True) -> dict:
     """watch対象に未検証の変更があるgitリポジトリを作り、Stopイベントを返す。
 
     設定はコミット済みにする(実運用の形。HEAD 版が優先されるため)。
@@ -28,8 +28,18 @@ def setup_repo(tmp_path: Path, command: str, timeout_sec: int = 10,
     git(tmp_path, "config", "user.email", "t@example.com")
     git(tmp_path, "config", "user.name", "t")
     git(tmp_path, "config", "commit.gpgsign", "false")
-    write_config(tmp_path, {"gate": {"command": command, "timeout_sec": timeout_sec,
-                                     "watch": WATCH, "ignore": IGNORE}}, commit=commit)
+    write_config(
+        tmp_path,
+        {
+            "gate": {
+                "command": command,
+                "timeout_sec": timeout_sec,
+                "watch": WATCH,
+                "ignore": IGNORE,
+            }
+        },
+        commit=commit,
+    )
     (tmp_path / "main.ts").write_text("source\n", encoding="utf-8")
     return {"cwd": str(tmp_path), "stop_hook_active": False}
 
@@ -63,6 +73,7 @@ def mark_verified(tmp_path: Path) -> None:
 
 # --- ゲートを掛けない条件 ---
 
+
 def test_設定が無いrepoでは何もしない(tmp_path):
     git(tmp_path, "init", "-q")
     assert gate.handle({"cwd": str(tmp_path)}) is None
@@ -70,8 +81,9 @@ def test_設定が無いrepoでは何もしない(tmp_path):
 
 def test_gitリポジトリでなければ警告してゲートしない(tmp_path):
     marker = tmp_path / "ran"
-    (tmp_path / ".loop-hooks.json").write_text(json.dumps(
-        {"gate": {"command": f"touch {marker}"}}), encoding="utf-8")
+    (tmp_path / ".loop-hooks.json").write_text(
+        json.dumps({"gate": {"command": f"touch {marker}"}}), encoding="utf-8"
+    )
     out = gate.handle({"cwd": str(tmp_path), "stop_hook_active": False})
     assert "systemMessage" in out
     assert blocked(out) is None
@@ -110,6 +122,7 @@ def test_watch対象外の変更では実行しない(tmp_path):
 
 
 # --- ゲートを掛ける条件 ---
+
 
 def test_未検証の変更があれば実行して通る(tmp_path):
     marker = tmp_path / "ran"
@@ -157,6 +170,7 @@ def test_git経由の変更でも実行する(tmp_path):
 
 # --- 失敗時の挙動 ---
 
+
 def test_失敗したらblockし検証済みにならない(tmp_path):
     event = setup_repo(tmp_path, "false")
     out = gate.handle(event)
@@ -200,6 +214,7 @@ def test_フィードバックは英語(tmp_path):
 
 # --- シェル機能 ---
 
+
 def test_andでコマンドを連結できる(tmp_path):
     assert gate.handle(setup_repo(tmp_path, "true && true")) is None
 
@@ -236,6 +251,7 @@ def test_サブディレクトリから起動してもゲートが掛かる(tmp_
 
 # --- タイムアウト ---
 
+
 def test_タイムアウトはblockになる(tmp_path):
     event = setup_repo(tmp_path, "sleep 30", timeout_sec=1)
     assert "timed out" in blocked(gate.handle(event))
@@ -251,6 +267,7 @@ def test_タイムアウトで孫プロセスも止まる(tmp_path):
 
 
 # --- worktree ---
+
 
 def test_worktreeは本体と独立に検証状態を持つ(tmp_path):
     """worktreeでは cwd がそのworktreeのルートになる。記録もそこに置かれる。"""
@@ -275,6 +292,7 @@ def test_worktreeは本体と独立に検証状態を持つ(tmp_path):
 
 # --- 出力形式(D-2: additionalContext) ---
 
+
 def test_失敗時はadditionalContextで返す(tmp_path):
     out = gate.handle(setup_repo(tmp_path, "false"))
     hso = out["hookSpecificOutput"]
@@ -289,6 +307,7 @@ def test_hook_event_nameが無ければStopとして扱う(tmp_path):
 
 
 # --- SubagentStop ---
+
 
 def subagent(event: dict) -> dict:
     return {**event, "hook_event_name": "SubagentStop"}
@@ -315,6 +334,7 @@ def test_SubagentStopの再入は警告で通す(tmp_path):
 
 
 # --- TeammateIdle ---
+
 
 def teammate(event: dict) -> dict:
     return {**event, "hook_event_name": "TeammateIdle", "teammate_name": "worker"}
@@ -352,11 +372,14 @@ def test_TeammateIdleは状態が変わればまたブロックする(tmp_path):
 
 # --- gate.on による絞り込み ---
 
+
 def test_onに含まれないイベントではゲートしない(tmp_path):
     marker = tmp_path / "ran"
     event = setup_repo(tmp_path, f"touch {marker}")
-    write_config(tmp_path, {"gate": {"command": f"touch {marker}", "watch": WATCH,
-                                     "ignore": IGNORE, "on": ["stop"]}})
+    write_config(
+        tmp_path,
+        {"gate": {"command": f"touch {marker}", "watch": WATCH, "ignore": IGNORE, "on": ["stop"]}},
+    )
     assert gate.handle(subagent(event)) is None
     assert not marker.exists()
     assert gate.handle(teammate(event)) is None
@@ -367,11 +390,13 @@ def test_onに含まれないイベントではゲートしない(tmp_path):
 
 # --- スクリプトとしての終了コード ---
 
+
 def test_スクリプトはTeammateIdleの失敗で終了コード2を返す(tmp_path):
     event = teammate(setup_repo(tmp_path, "echo NOPE >&2; exit 1"))
     script = Path(__file__).resolve().parent.parent / "hooks" / "gate.py"
-    r = subprocess.run([sys.executable, str(script)], input=json.dumps(event),
-                       capture_output=True, text=True)
+    r = subprocess.run(
+        [sys.executable, str(script)], input=json.dumps(event), capture_output=True, text=True
+    )
     assert r.returncode == 2
     assert "NOPE" in r.stderr
 
@@ -379,8 +404,9 @@ def test_スクリプトはTeammateIdleの失敗で終了コード2を返す(tmp
 def test_スクリプトはStopの失敗でも終了コード0を返す(tmp_path):
     event = setup_repo(tmp_path, "exit 1")
     script = Path(__file__).resolve().parent.parent / "hooks" / "gate.py"
-    r = subprocess.run([sys.executable, str(script)], input=json.dumps(event),
-                       capture_output=True, text=True)
+    r = subprocess.run(
+        [sys.executable, str(script)], input=json.dumps(event), capture_output=True, text=True
+    )
     assert r.returncode == 0
     assert json.loads(r.stdout)["hookSpecificOutput"]["hookEventName"] == "Stop"
 
@@ -395,6 +421,7 @@ def test_ゲートが通ればブロック記録は無効になる(tmp_path):
 
 
 # --- 0.2.1: 同じフィンガープリントは2度ブロックしない(全イベント) ---
+
 
 def test_Stopは同じ状態を二度ブロックしない(tmp_path):
     """stop_hook_active が伝播しない状況(upstream #54360)でも閉じ込めない。"""
@@ -429,6 +456,7 @@ def test_二度目の警告後も検証済みにはならない(tmp_path):
 
 # --- 0.2.1: フィードバックは先頭と末尾を残す ---
 
+
 def test_長い出力は先頭と末尾の両方が残る(tmp_path):
     """pytest のトレースバックは末尾より前に出るので、末尾だけでは原因が切れる。"""
     script = "python3 -c \"print('FIRST_LINE'); print('x'*20000); print('LAST_LINE')\"; exit 1"
@@ -447,10 +475,12 @@ def test_短い出力は切り詰めない(tmp_path):
 
 # --- 0.2.1: 設定改変によるゲート回避を防ぐ ---
 
+
 def test_作業ツリーでcommandを緩めてもHEADの設定でブロックされる(tmp_path):
     event = setup_repo(tmp_path, "false")
-    (tmp_path / ".loop-hooks.json").write_text(json.dumps(
-        {"gate": {"command": "true", "watch": WATCH}}), encoding="utf-8")  # 改変
+    (tmp_path / ".loop-hooks.json").write_text(
+        json.dumps({"gate": {"command": "true", "watch": WATCH}}), encoding="utf-8"
+    )  # 改変
     out = gate.handle(event)
     assert blocked(out)
     assert "systemMessage" in out  # 改変に気づけるよう通知する
@@ -474,6 +504,7 @@ def test_設定をコミットすれば通知は消える(tmp_path):
 
 
 # --- 0.3.0: 判定ログ ---
+
 
 def last(tmp_path: Path) -> dict:
     rows = log.tail(str(tmp_path), 1)
@@ -511,8 +542,9 @@ def test_二重ブロック回避で通した回はran_warn(tmp_path):
 
 def test_on対象外はoffと記録される(tmp_path):
     event = setup_repo(tmp_path, "true")
-    write_config(tmp_path, {"gate": {"command": "true", "watch": WATCH, "ignore": IGNORE,
-                                     "on": ["stop"]}})
+    write_config(
+        tmp_path, {"gate": {"command": "true", "watch": WATCH, "ignore": IGNORE, "on": ["stop"]}}
+    )
     gate.handle(subagent(event))
     assert (last(tmp_path)["event"], last(tmp_path)["decision"]) == ("SubagentStop", "off")
 
@@ -533,11 +565,16 @@ def test_設定が無いリポジトリでは記録しない(tmp_path):
 
 # --- 0.3.0: --status ---
 
+
 def test_statusはstdinを読まずに状態を表示して0で終わる(tmp_path):
     setup_repo(tmp_path, "true")
     script = Path(__file__).resolve().parent.parent / "hooks" / "gate.py"
-    r = subprocess.run([sys.executable, str(script), "--status", str(tmp_path)],
-                       capture_output=True, text=True, stdin=subprocess.DEVNULL)
+    r = subprocess.run(
+        [sys.executable, str(script), "--status", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+    )
     assert r.returncode == 0
     assert "loop-hooks status" in r.stdout
     assert "gate will run" in r.stdout
@@ -548,21 +585,30 @@ def test_statusは壊れた設定でも例外にせず0で終わる(tmp_path):
     git(tmp_path, "init", "-q")
     (tmp_path / ".loop-hooks.json").write_text("{broken", encoding="utf-8")
     script = Path(__file__).resolve().parent.parent / "hooks" / "gate.py"
-    r = subprocess.run([sys.executable, str(script), "--status", str(tmp_path)],
-                       capture_output=True, text=True, stdin=subprocess.DEVNULL)
+    r = subprocess.run(
+        [sys.executable, str(script), "--status", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+    )
     assert r.returncode == 0
     assert "gate disabled" in r.stdout
 
 
 def test_statusはgitリポジトリでなくても0で終わる(tmp_path):
     script = Path(__file__).resolve().parent.parent / "hooks" / "gate.py"
-    r = subprocess.run([sys.executable, str(script), "--status", str(tmp_path)],
-                       capture_output=True, text=True, stdin=subprocess.DEVNULL)
+    r = subprocess.run(
+        [sys.executable, str(script), "--status", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+    )
     assert r.returncode == 0
     assert "not a git repository" in r.stdout
 
 
 # --- 0.3.1: fingerprint が取れないとき ---
+
 
 def test_fingerprintが取れなければ安全側でゲートを走らせる(tmp_path, monkeypatch):
     """0.3.1: git 失敗で fp が None のとき、None == None(未検証)で skipped になっていた。"""

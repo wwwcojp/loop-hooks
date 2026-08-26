@@ -3,6 +3,7 @@
 gate.py --status と /loop-hooks:status が共用する。ゲートと同じ経路(repo_root →
 config.load → fingerprint.compute → state)を辿るが、コマンドは実行しない。
 """
+
 from . import config, fingerprint, log, state
 
 RECENT = 5
@@ -23,10 +24,20 @@ def collect(cwd: str) -> dict:
     root = fingerprint.repo_root(cwd)
     cfg = config.load(root or cwd)
     info = {
-        "cwd": cwd, "root": root,
-        "config_source": None, "config_error": None, "notice": None,
-        "command": None, "on": None, "watch": None, "ignore": None, "timeout_sec": None,
-        "fingerprint": None, "verified": None, "will_run": None, "blocked": None,
+        "cwd": cwd,
+        "root": root,
+        "config_source": None,
+        "config_error": None,
+        "notice": None,
+        "command": None,
+        "on": None,
+        "watch": None,
+        "ignore": None,
+        "timeout_sec": None,
+        "fingerprint": None,
+        "verified": None,
+        "will_run": None,
+        "blocked": None,
         "recent": _recent(root or cwd),
         "state_dir": str(state.state_dir()),
     }
@@ -38,15 +49,23 @@ def collect(cwd: str) -> dict:
     info["config_source"] = cfg.get("_source")
     info["notice"] = cfg.get("_notice")
     gate = cfg["gate"]
-    info.update(command=gate["command"], on=gate["on"], watch=gate["watch"],
-                ignore=gate["ignore"], timeout_sec=gate["timeout_sec"])
+    info.update(
+        command=gate["command"],
+        on=gate["on"],
+        watch=gate["watch"],
+        ignore=gate["ignore"],
+        timeout_sec=gate["timeout_sec"],
+    )
     if root is None:
         return info
     current = fingerprint.compute(root, gate)
     verified = state.read_verified(root)
-    info.update(fingerprint=current, verified=verified,
-                will_run=current != verified,
-                blocked=current is not None and current == state.read_blocked(root))
+    info.update(
+        fingerprint=current,
+        verified=verified,
+        will_run=current != verified,
+        blocked=current is not None and current == state.read_blocked(root),
+    )
     return info
 
 
@@ -79,8 +98,7 @@ def render(info: dict) -> str:
     else:
         lines.append(_row("state", "unchanged since last pass -> gate will not run"))
     if info["blocked"] is not None:
-        blocked_text = ("yes (this state was already blocked once)" if info["blocked"]
-                        else "no")
+        blocked_text = "yes (this state was already blocked once)" if info["blocked"] else "no"
         lines.append(_row("blocked", blocked_text))
     lines.append(_row("records", info["state_dir"]))
     if info["recent"]:

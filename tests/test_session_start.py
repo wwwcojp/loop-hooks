@@ -1,4 +1,5 @@
 """session_start: セッション開始時に設定を検証し、ゲートの有効/無効を告知する。"""
+
 import json
 import subprocess
 import sys
@@ -22,7 +23,8 @@ def repo(tmp_path: Path, body=None, commit: bool = True) -> dict:
     git(tmp_path, "config", "commit.gpgsign", "false")
     if body is not None:
         (tmp_path / ".loop-hooks.json").write_text(
-            body if isinstance(body, str) else json.dumps(body), encoding="utf-8")
+            body if isinstance(body, str) else json.dumps(body), encoding="utf-8"
+        )
         if commit:
             git(tmp_path, "add", "-A")
             git(tmp_path, "commit", "-qm", "config")
@@ -43,8 +45,10 @@ def test_有効なら告知と1行のsystemMessage(tmp_path):
     assert "loop-hooks is active" in context(out)
     assert GATE["command"] in context(out)
     from lib import config
+
     assert out["systemMessage"] == (
-        f"[loop-hooks {config.plugin_version()}] gate active: {GATE['command']}")
+        f"[loop-hooks {config.plugin_version()}] gate active: {GATE['command']}"
+    )
 
 
 def test_告知には対象イベントとwatchとignoreが入る(tmp_path):
@@ -75,8 +79,9 @@ def test_設定エラーは警告だけで告知しない(tmp_path):
 
 def test_gitでなければ警告だけで告知しない(tmp_path):
     (tmp_path / ".loop-hooks.json").write_text(json.dumps({"gate": GATE}), encoding="utf-8")
-    out = session_start.handle({"cwd": str(tmp_path), "hook_event_name": "SessionStart",
-                                "source": "startup"})
+    out = session_start.handle(
+        {"cwd": str(tmp_path), "hook_event_name": "SessionStart", "source": "startup"}
+    )
     assert context(out) is None
     assert "not a git repository" in out["systemMessage"]
 
@@ -107,6 +112,7 @@ def test_設定エラーはdisabledと記録される(tmp_path):
 
 def test_SessionStartでは通知の重複排除を消費しない(tmp_path):
     from lib import state
+
     session_start.handle(repo(tmp_path, {"gate": GATE}, commit=False))
     assert state.read_noticed(str(tmp_path)) is None
 
@@ -115,8 +121,9 @@ def test_スクリプトは常に0で終わる(tmp_path):
     script = Path(__file__).resolve().parent.parent / "hooks" / "session_start.py"
     valid_stdin = json.dumps(repo(tmp_path, {"gate": GATE}))
     for stdin in (valid_stdin, "not json", ""):
-        r = subprocess.run([sys.executable, str(script)], input=stdin,
-                           capture_output=True, text=True)
+        r = subprocess.run(
+            [sys.executable, str(script)], input=stdin, capture_output=True, text=True
+        )
         assert r.returncode == 0, stdin
         if stdin is valid_stdin:
             out = json.loads(r.stdout)
@@ -128,6 +135,7 @@ def test_スクリプトは常に0で終わる(tmp_path):
 def test_告知にプラグインのバージョンを出す(tmp_path, monkeypatch):
     """0.3.2: 設定は新しいがコードは古い、という状態を告知から判別できるようにする。"""
     from lib import config
+
     monkeypatch.setattr(config, "plugin_version", lambda: "9.9.9")
     out = session_start.handle(repo(tmp_path, {"gate": GATE}))
     assert out["systemMessage"] == f"[loop-hooks 9.9.9] gate active: {GATE['command']}"

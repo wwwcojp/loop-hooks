@@ -1,4 +1,5 @@
 """scripts/verify.py: quick ステージは CI と同じコマンド・同じ順序。失敗で非ゼロ。"""
+
 import re
 from pathlib import Path
 
@@ -64,8 +65,11 @@ def test_全チェックが成功すればTrue(tmp_path):
 
 
 def test_最初の失敗で打ち切りFalse(tmp_path, capsys):
-    checks = [verify.Check("a", ["true"]), verify.Check("b", ["false"]),
-              verify.Check("c", ["sh", "-c", "echo SHOULD_NOT_RUN"])]
+    checks = [
+        verify.Check("a", ["true"]),
+        verify.Check("b", ["false"]),
+        verify.Check("c", ["sh", "-c", "echo SHOULD_NOT_RUN"]),
+    ]
     assert verify.run_stage("quick", checks, repo_root=tmp_path) is False
     assert "SHOULD_NOT_RUN" not in capsys.readouterr().out
 
