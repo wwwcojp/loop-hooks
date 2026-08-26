@@ -11,6 +11,7 @@ safe-dev-hooks `loop-engineering-phase1/phase2` spec と `.claude/rules/dogfoodi
 | 節 | 状態 |
 |---|---|
 | 全節 | 確認済み(2026-08-26 チャットで合意。静的セキュリティ検査 §3.1・import-linter §3.2 を追記のうえ承認) |
+| 第 1 段階 | **完了(0.3.1、2026-08-26)**。計画は `docs/superpowers/archive/plans/2026-08-26-phase1-dogfooding.md` |
 
 ## 1. 目的と現状
 
@@ -125,6 +126,23 @@ git 失敗時の fp 空記録 / `recent` が `skipped` で埋まる問題(§5.3)
 - ゲートが**実際に自分のターンを止めた**記録が判定ログに残る(`ran fail` → 修正 → `ran pass`)。
   意図的に壊したテストで確認し、結果を CHANGELOG の 0.3.1 に一行残す。
 - `test_quick_stage_mirrors_ci` が CI 変更で落ちることを確認(ミラーテストが機能している)。
+
+確認済み(2026-08-26、プラグイン 0.3.1 = `2d0d7a0` を GitHub 版として再インストール・再起動後):
+
+- SessionStart 告知 `[loop-hooks] gate active: uv run python scripts/verify.py quick` を確認。
+- `tests/test_state.py` の assert を意図的に壊してターンを終了 → 判定ログに `Stop ran fail`(10.8 秒)、
+  続く `SubagentStop` は同じ fp のため `ran warn`(二重ブロック防止が機能)。`git checkout` で戻すと
+  検証済み fp と一致し `skipped`。次のコミット(HEAD が変わる)で `ran pass`。
+- `quick` の所要時間: 約 9〜11 秒(手元 8.95 秒、ゲート実測 10.8 秒)。予算 30 秒の内側。
+- ミラーテストは `ci.yml` の Lint 行を戻すと FAIL することを確認済み(実装時)。
+
+**発見した欠陥(0.3.2 候補):** `/loop-hooks:status` スキルの `!` コマンドには `CLAUDE_PLUGIN_DATA` が
+渡らないため、`~/.cache/loop-hooks` 側を読んで `recent (no runs recorded)` になる。フックが書いた
+記録(`$CLAUDE_PLUGIN_DATA/state/`)を表示できていない。対策候補: SKILL.md で `${CLAUDE_PLUGIN_DATA}`
+を明示的に渡す(プラグイン変数の置換対象か要確認)、または `state_dir()` に「`CLAUDE_PLUGIN_DATA`
+が無ければ既知のプラグインデータ置き場を探す」フォールバックを足す。併せて、SessionStart 告知に
+プラグインのバージョンを添える(今回、設定は新しいがコードは 0.3.0 のまま、という状態が告知から
+判別できなかった)。
 
 ## 3. 第 2 段階 — 静的検査の拡充(フォーマッタ・型・セキュリティ・import 契約) → 0.4.0 前半
 

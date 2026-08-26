@@ -20,6 +20,8 @@
 - **Decision-log trimming is atomic** (write to a temp file, then `os.replace`), so a
   crash or a concurrent session cannot leave a half-written log.
 - `--status` is covered by a test that injects an exception and checks it still exits 0.
+- Dogfooding acceptance: the gate stopped a turn in this repository on a deliberately
+  broken test (`ran fail`, 10.8 s) and let it end after the fix.
 
 ### Upgrading
 - No configuration changes. No entry-point files moved, so a running session keeps
