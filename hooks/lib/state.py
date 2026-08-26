@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from typing import Any, cast
 
 
 def state_dir() -> Path:
@@ -58,12 +59,12 @@ def _path(root: str) -> Path:
     return state_dir() / f"{key(root)}.json"
 
 
-def _read(root: str) -> dict:
+def _read(root: str) -> dict[str, Any]:
     try:
         data = json.loads(_path(root).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, ValueError):
         return {}
-    return data if isinstance(data, dict) else {}
+    return cast(dict[str, Any], data) if isinstance(data, dict) else {}
 
 
 def _read_str(root: str, key: str) -> str | None:

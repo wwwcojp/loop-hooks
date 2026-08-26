@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 from . import fingerprint
 
@@ -17,7 +18,7 @@ EVENTS = ("stop", "subagent_stop", "teammate_idle")
 # hooks.json の timeout(3600)より確実に短くする。Claude Code 側が先にフックを殺すと
 # プロセスグループの後始末(killpg)が走らず、テストランナーが孤児として残る。
 TIMEOUT_MAX_SEC = 3000
-GATE_DEFAULTS = {
+GATE_DEFAULTS: dict[str, Any] = {
     "on": list(EVENTS),
     "timeout_sec": 600,
     # 既定は「全部見張り、明らかな雑音だけ除く」。狭い既定だと、言語が違うリポジトリで
@@ -38,7 +39,7 @@ GATE_DEFAULTS = {
 }
 
 
-def load(root: str | None) -> dict | None:
+def load(root: str | None) -> dict[str, Any] | None:
     """設定を返す。ファイルが無い repo は None(=このrepoではゲート無効)。
     ファイルはあるが読めない・不正なら {"_error": 理由}(Stop側が警告を出す)。
 
@@ -91,11 +92,18 @@ def load(root: str | None) -> dict | None:
     return result
 
 
-def _validate(raw) -> dict:
-    gate = raw.get("gate") if isinstance(raw, dict) else None
-    if not isinstance(gate, dict) or not isinstance(gate.get("command"), str):
+def _validate(raw: Any) -> dict[str, Any]:
+    if not isinstance(raw, dict):
         return {"_error": f"{CONFIG_NAME} has no gate.command (string)"}
-    if not gate["command"].strip():
+    raw_dict = cast(dict[str, Any], raw)
+    gate_val = raw_dict.get("gate")
+    if not isinstance(gate_val, dict):
+        return {"_error": f"{CONFIG_NAME} has no gate.command (string)"}
+    gate = cast(dict[str, Any], gate_val)
+    command = gate.get("command")
+    if not isinstance(command, str):
+        return {"_error": f"{CONFIG_NAME} has no gate.command (string)"}
+    if not command.strip():
         return {"_error": f"{CONFIG_NAME}: gate.command must not be empty"}
     merged = dict(GATE_DEFAULTS)
     merged.update(gate)
@@ -113,11 +121,13 @@ def _validate(raw) -> dict:
 
     for key in ("watch", "ignore"):
         value = merged.get(key)
-        if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        if not isinstance(value, list) or not all(
+            isinstance(v, str) for v in cast(list[Any], value)
+        ):
             return {"_error": f"{CONFIG_NAME}: gate.{key} must be a list of strings"}
 
     on = merged.get("on")
-    if not isinstance(on, list) or not on or not all(v in EVENTS for v in on):
+    if not isinstance(on, list) or not on or not all(v in EVENTS for v in cast(list[Any], on)):
         return {"_error": f"{CONFIG_NAME}: gate.on must be a non-empty list of {', '.join(EVENTS)}"}
 
     return {"gate": merged}
@@ -129,5 +139,7 @@ def plugin_version() -> str | None:
         data = json.loads(PLUGIN_JSON.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    v = data.get("version") if isinstance(data, dict) else None
+    if not isinstance(data, dict):
+        return None
+    v = cast(dict[str, Any], data).get("version")
     return v if isinstance(v, str) and v else None

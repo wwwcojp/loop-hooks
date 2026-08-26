@@ -4,13 +4,15 @@ gate.py --status と /loop-hooks:status が共用する。ゲートと同じ経�
 config.load → fingerprint.compute → state)を辿るが、コマンドは実行しない。
 """
 
+from typing import Any
+
 from . import config, fingerprint, log, state
 
 RECENT = 5
 RECENT_SEARCH = 200  # 最新の ran をこの範囲まで遡って探す
 
 
-def _recent(root: str) -> list[dict]:
+def _recent(root: str) -> list[dict[str, Any]]:
     """直近 RECENT 件。その中に ran が無ければ、最新の ran を末尾に 1 件足す。"""
     records = log.tail(root, RECENT_SEARCH)
     recent = records[:RECENT]
@@ -20,10 +22,10 @@ def _recent(root: str) -> list[dict]:
     return recent + [last_ran] if last_ran else recent
 
 
-def collect(cwd: str) -> dict:
+def collect(cwd: str) -> dict[str, Any]:
     root = fingerprint.repo_root(cwd)
     cfg = config.load(root or cwd)
-    info = {
+    info: dict[str, Any] = {
         "cwd": cwd,
         "root": root,
         "config_source": None,
@@ -69,11 +71,11 @@ def collect(cwd: str) -> dict:
     return info
 
 
-def _row(label: str, value) -> str:
+def _row(label: str, value: Any) -> str:
     return f"  {label:<9} {value}"
 
 
-def render(info: dict) -> str:
+def render(info: dict[str, Any]) -> str:
     version = config.plugin_version()
     lines = [f"loop-hooks status ({version})" if version else "loop-hooks status"]
     lines.append(_row("repo", info["root"] or f"{info['cwd']} (not a git repository)"))
@@ -110,14 +112,14 @@ def render(info: dict) -> str:
     return "\n".join(lines)
 
 
-def _safe_format_recent(r: dict) -> str:
+def _safe_format_recent(r: dict[str, Any]) -> str:
     try:
         return _format_recent(r)
     except (TypeError, ValueError):
         return "(unreadable record)"
 
 
-def _format_recent(r: dict) -> str:
+def _format_recent(r: dict[str, Any]) -> str:
     ts = str(r.get("ts") or "")[:16].replace("T", " ")
     event = str(r.get("event") or "")
     decision = str(r.get("decision") or "")

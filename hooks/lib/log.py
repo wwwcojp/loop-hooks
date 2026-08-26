@@ -8,6 +8,7 @@ import datetime
 import json
 import os
 from pathlib import Path
+from typing import Any, cast
 
 from . import state
 
@@ -23,7 +24,7 @@ def _now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def append(root: str, record: dict) -> None:
+def append(root: str, record: dict[str, Any]) -> None:
     """1行追記する。ts はここで付ける。例外は投げない。"""
     try:
         p = _path(root)
@@ -46,20 +47,20 @@ def _trim(p: Path) -> None:
     os.replace(tmp, p)
 
 
-def tail(root: str, n: int = 5) -> list[dict]:
+def tail(root: str, n: int = 5) -> list[dict[str, Any]]:
     """最新 n 件を新しい順に返す。壊れた行は飛ばす。例外は投げない。"""
     try:
         lines = _path(root).read_text(encoding="utf-8").splitlines()
     except (OSError, ValueError):
         return []
-    out: list[dict] = []
+    out: list[dict[str, Any]] = []
     for line in reversed(lines):
         try:
             rec = json.loads(line)
         except json.JSONDecodeError:
             continue
         if isinstance(rec, dict):
-            out.append(rec)
+            out.append(cast(dict[str, Any], rec))
         if len(out) >= n:
             break
     return out

@@ -14,12 +14,13 @@
 
 import sys
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import config, fingerprint, hook_io, log  # noqa: E402
 
 
-def announcement(gate_cfg: dict) -> str:
+def announcement(gate_cfg: dict[str, Any]) -> str:
     """エージェント向けの告知。命令形ではなく事実文で書く(プロンプトインジェクション
     防御に引っかからないための公式の指針)。"""
     return (
@@ -32,7 +33,7 @@ def announcement(gate_cfg: dict) -> str:
     )
 
 
-def handle(event: dict) -> dict | None:
+def handle(event: dict[str, Any]) -> dict[str, Any] | None:
     cwd = event.get("cwd") or ""
     root = fingerprint.repo_root(cwd)
     cfg = config.load(root or cwd)

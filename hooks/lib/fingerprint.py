@@ -8,6 +8,7 @@ import fnmatch
 import hashlib
 import subprocess
 from pathlib import Path
+from typing import Any
 
 GIT_TIMEOUT_SEC = 30
 
@@ -37,7 +38,7 @@ def head_file(root: str, rel: str) -> bytes | None:
     return _git(root, "show", f"HEAD:{rel}")
 
 
-def is_watched(rel: str, gate_cfg: dict) -> bool:
+def is_watched(rel: str, gate_cfg: dict[str, Any]) -> bool:
     """リポジトリ相対パスがゲート対象か。ignore は watch より優先。"""
     if any(fnmatch.fnmatch(rel, p) for p in gate_cfg["ignore"]):
         return False
@@ -71,7 +72,7 @@ def _content_hash(path: Path) -> bytes:
         return b"-"  # 削除済み、あるいは読めない
 
 
-def compute(root: str, gate_cfg: dict) -> str | None:
+def compute(root: str, gate_cfg: dict[str, Any]) -> str | None:
     """watch対象の現在状態のフィンガープリント。gitリポジトリでなければ None。"""
     paths = _changed_paths(root)
     if paths is None:

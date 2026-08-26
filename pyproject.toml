@@ -7,10 +7,16 @@ requires-python = ">=3.10"
 [dependency-groups]
 dev = [
     "import-linter>=2.13",
+    "pyright>=1.1.411",
     "pytest>=8.0",
     "ruff>=0.8",
     "tomli>=2.0; python_version < '3.11'",
 ]
+
+[tool.pyright]
+include = ["hooks", "scripts"]
+strict = ["hooks", "scripts"]
+pythonVersion = "3.10"
 
 [tool.ruff]
 line-length = 100

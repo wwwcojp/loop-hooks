@@ -55,6 +55,7 @@ STAGES: dict[str, list[Check]] = {
             cwd="hooks",
             env=(("PYTHONPATH", "."),),
         ),
+        Check("types", ["uv", "run", "pyright"]),
         Check("tests", ["uv", "run", "pytest", "-q"]),
     ],
 }

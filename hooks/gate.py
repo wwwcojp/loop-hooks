@@ -18,6 +18,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib import config, fingerprint, hook_io, log, state  # noqa: E402
@@ -34,7 +35,7 @@ FEEDBACK = "[loop-hooks] verification gate failed. Fix it before finishing:\n"
 WARN = "[loop-hooks] gate failed again; letting this turn end unverified:\n"
 
 
-def _kill_group(proc: subprocess.Popen) -> None:
+def _kill_group(proc: subprocess.Popen[str]) -> None:
     """シェルが起こした子孫ごと落とす。シェル自身だけ殺しても孫が残る。"""
     try:
         os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
@@ -82,7 +83,9 @@ def _excerpt(out: str) -> str:
     )
 
 
-def _refuse(hook_event: str, root: str, current: str | None, detail: str, event: dict) -> dict:
+def _refuse(
+    hook_event: str, root: str, current: str | None, detail: str, event: dict[str, Any]
+) -> dict[str, Any]:
     """検証に失敗したときの応答。イベントごとに形式が違う。
 
     同じフィンガープリントは2度ブロックしない。フィンガープリントが同じなら
@@ -105,7 +108,7 @@ def _refuse(hook_event: str, root: str, current: str | None, detail: str, event:
     }
 
 
-def handle(event: dict) -> dict | None:
+def handle(event: dict[str, Any]) -> dict[str, Any] | None:
     hook_event = event.get("hook_event_name") or "Stop"
     key = EVENT_KEYS.get(hook_event)
     if key is None:
@@ -146,7 +149,7 @@ def handle(event: dict) -> dict | None:
         if verified is not None:
             state.write_verified(root, verified)
         state.write_blocked(root, "")  # 直ったのでブロック記録を無効化
-        out = {}
+        out: dict[str, Any] = {}
         rec["result"] = "pass"
     else:
         out = _refuse(hook_event, root, current, detail, event)
@@ -157,7 +160,7 @@ def handle(event: dict) -> dict | None:
     return _with_notice(out, root, cfg.get("_notice"))
 
 
-def _with_notice(out: dict, root: str, notice: str | None) -> dict | None:
+def _with_notice(out: dict[str, Any], root: str, notice: str | None) -> dict[str, Any] | None:
     """設定に関する通知を、ゲートが実際に走った回に一度だけ添える。"""
     if notice and notice != state.read_noticed(root):
         state.write_noticed(root, notice)
