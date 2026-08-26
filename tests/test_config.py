@@ -50,6 +50,18 @@ def test_commandが無い設定は_errorになる(tmp_path):
     assert "_error" in cfg
 
 
+def test_トップレベルがdictでなければgate_command無しのエラー():
+    assert config._validate(["gate"]) == {
+        "_error": f"{config.CONFIG_NAME} has no gate.command (string)"
+    }
+
+
+def test_gateがdictでなければgate_command無しのエラー():
+    assert config._validate({"gate": "x"}) == {
+        "_error": f"{config.CONFIG_NAME} has no gate.command (string)"
+    }
+
+
 def test_ignoreが文字列だと_errorになる(tmp_path):
     cwd = write(tmp_path, {"gate": {"command": "echo ok", "ignore": "*.md"}})
     cfg = config.load(cwd)
