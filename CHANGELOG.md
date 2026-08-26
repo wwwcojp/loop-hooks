@@ -11,8 +11,9 @@
   configuration and non-git directories are reported at session start instead of at
   the first Stop. The verification command is never run here.
 - **Decision log.** Every gate decision (`skipped`, `ran pass/fail/warn`, `off`,
-  `disabled`, `announced`) is appended to `<state dir>/<key>.log.jsonl`, capped at
-  1000 lines. Nothing is written into your repository.
+  `disabled`, `announced`) is appended to `<state dir>/<key>.log.jsonl`, trimmed
+  back to the last 1000 lines whenever it exceeds 1200. Nothing is written into
+  your repository.
 - **`/loop-hooks:status`** and **`uv run …/hooks/gate.py --status [path]`**: where
   the configuration was read from, what the gate runs, whether it will run at the
   next stop, and the last five decisions. Read-only.
