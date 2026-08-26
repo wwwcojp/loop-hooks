@@ -12,7 +12,7 @@ safe-dev-hooks `loop-engineering-phase1/phase2` spec と `.claude/rules/dogfoodi
 |---|---|
 | 全節 | 確認済み(2026-08-26 チャットで合意。静的セキュリティ検査 §3.1・import-linter §3.2 を追記のうえ承認) |
 | 第 1 段階 | **完了(0.3.1、2026-08-26)**。計画は `docs/superpowers/archive/plans/2026-08-26-phase1-dogfooding.md` |
-| 第 2 段階 | 子 spec `2026-08-27-phase2-static-checks-design.md`(確認済み 2026-08-27) |
+| 第 2 段階 | **完了(0.4.0、2026-08-27)**。子 spec `2026-08-27-phase2-static-checks-design.md`、計画は `docs/superpowers/archive/plans/2026-08-27-phase2-static-checks.md` |
 
 ## 1. 目的と現状
 

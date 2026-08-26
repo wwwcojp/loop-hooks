@@ -144,6 +144,21 @@ uv export --format requirements-txt --no-hashes | uvx pip-audit -r /dev/stdin
 - secret scanning / push protection が `enabled`(`gh api` で確認)。
 - 0.4.0 として CHANGELOG・バージョン。再起動は不要(入口ファイル・hooks.json は触らない)。
 
+確認済み(2026-08-27、main = 6c680f5、0.4.0):
+
+- `quick` 6 チェック: 手元 11.3〜11.5 秒(予算 15 秒の内側。ゲートの `timeout_sec` は pyright 初回の Node
+  取得を見込んで 300 に)。
+- pyright strict(hooks + scripts): 0 エラー。ただし初回は 221 件出て、`hooks/` 8 ファイルに型注釈・cast を
+  足して 0 にした(§2 の「0 エラー」実測は `-p` 指定の設定が strict を効かせていなかった誤計測)。
+  tests は basic で 34 件(`sys.path` 由来の import 解決不能)のため対象外。
+- import-linter 3 契約 KEPT。`state.py` に `from . import log` を足すと層契約が BROKEN になることを確認。
+- ruff `S`: 受け入れ済み noqa 3 件のみ。tests は per-file-ignores(S101, S603)。
+- zizmor `--min-severity low`: 0 件(手元・CI とも)。CI 初回(run 33024433599): `test (3.10)` /
+  `test (3.14)` / `security` すべて success。
+- Dependabot: 設定検知直後に初回 PR が 2 件(#1 Actions 2 件、#2 ruff 0.16.3 → 0.16.4)。
+- secret scanning / push protection: `gh api` で `enabled` に(ユーザー承認のうえ実施)。
+- 最終レビューで `security` ジョブの `uv export | pip-audit` に pipefail が無い欠陥を検出し、`shell: bash` で修正。
+
 ## 5. スコープ外
 
 - semgrep(親 §3.1 の保留判断を維持)。
