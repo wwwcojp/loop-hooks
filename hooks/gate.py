@@ -158,16 +158,19 @@ def _with_notice(out: dict, root: str, notice: str | None) -> dict | None:
     return out or None
 
 
+def status_main(target: str) -> int:
+    """`--status` の本体。表示ツールであって判定ツールではない: stdin を読まず、常に 0。"""
+    from lib import status  # 表示専用。ゲート経路では読み込まない(0.3.0 spec §2)
+    try:
+        print(status.render(status.collect(target)))
+    except Exception as exc:  # 表示が落ちてもゲートには関係ない
+        print(f"loop-hooks status unavailable: {exc}")
+    return 0
+
+
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--status":
-        from lib import status  # 表示専用。ゲート経路では読み込まない(item 3)
-        # 表示ツールであって判定ツールではない。stdin は読まず、常に exit 0。
-        target = sys.argv[2] if len(sys.argv) > 2 else os.getcwd()
-        try:
-            print(status.render(status.collect(target)))
-        except Exception as exc:  # 表示ツールであって判定ツールではない
-            print(f"loop-hooks status unavailable: {exc}")
-        sys.exit(0)
+        sys.exit(status_main(sys.argv[2] if len(sys.argv) > 2 else os.getcwd()))
     out = handle(hook_io.read_event()) or {}
     exit_code = out.pop("_exit_code", 0)
     stderr = out.pop("_stderr", "")

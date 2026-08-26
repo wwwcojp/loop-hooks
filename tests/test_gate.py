@@ -579,3 +579,21 @@ def test_fingerprintが取れないままpassしてもverifiedを書かない(tm
     monkeypatch.setattr(fingerprint, "compute", lambda root, cfg: None)
     assert gate.handle(event) is None
     assert state.read_verified(str(tmp_path)) is None
+
+
+def test_statusは内部で例外が出ても落ちずに0で終わる(monkeypatch, capsys):
+    """0.3.1: 表示ツールであって判定ツールではない。例外でも exit 0 と説明文。"""
+    from lib import status
+
+    def boom(target):
+        raise RuntimeError("injected")
+
+    monkeypatch.setattr(status, "collect", boom)
+    assert gate.status_main("/home/USER/anything") == 0
+    out = capsys.readouterr().out
+    assert "loop-hooks status unavailable" in out and "injected" in out
+
+
+def test_statusは正常時にrenderの結果を出す(tmp_path, capsys):
+    assert gate.status_main(str(tmp_path)) == 0
+    assert capsys.readouterr().out.startswith("loop-hooks status")
