@@ -40,7 +40,7 @@ class Check:
 def shell_line(check: Check) -> str:
     """CI の `run:` に書くべき 1 行。tests/test_verify.py がこれと ci.yml を突き合わせる。"""
     prefix = f"cd {check.cwd} && " if check.cwd != "." else ""
-    env = "".join(f"{k}={v} " for k, v in check.env)
+    env = "".join(f"{k}={shlex.quote(v)} " for k, v in check.env)
     return prefix + env + shlex.join(check.cmd)
 
 

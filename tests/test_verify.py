@@ -51,6 +51,11 @@ def test_shell_lineは空白を含む引数をクォートする():
     assert verify.shell_line(c) == "git grep -nP 'a b' --"
 
 
+def test_shell_lineは空白を含むenv値をクォートする():
+    c = verify.Check("x", ["echo", "hi"], env=(("FOO", "a b"),))
+    assert verify.shell_line(c) == "FOO='a b' echo hi"
+
+
 def test_run_stageはcwdとenvを反映する(tmp_path):
     (tmp_path / "sub").mkdir()
     c = verify.Check(
