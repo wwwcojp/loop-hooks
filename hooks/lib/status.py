@@ -72,7 +72,7 @@ def render(info: dict) -> str:
     if info["recent"]:
         rows = [_safe_format_recent(r) for r in info["recent"]]
         lines.append(_row("recent", rows[0]))
-        lines.extend(f"  {'':<9} {r}" for r in rows[1:])
+        lines.extend(_row("", r) for r in rows[1:])
     else:
         lines.append(_row("recent", "(no runs recorded)"))
     return "\n".join(lines)

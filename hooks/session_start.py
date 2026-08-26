@@ -40,11 +40,11 @@ def handle(event: dict) -> dict | None:
     rec = {"event": "SessionStart", "source": event.get("source") or ""}
     if "_error" in cfg:
         log.append(root or cwd, {**rec, "decision": "disabled", "note": cfg["_error"][:80]})
-        return {"systemMessage": f"[loop-hooks] gate disabled: {cfg['_error']}"}
+        return {"systemMessage": config.DISABLED_PREFIX + cfg["_error"]}
     if root is None:
         log.append(cwd, {**rec, "decision": "disabled", "note": "not a git repository"})
-        return {"systemMessage": "[loop-hooks] gate disabled: not a git repository "
-                                 f"({cwd}). loop-hooks uses git to detect changes."}
+        return {"systemMessage": config.DISABLED_PREFIX
+                                 + config.NOT_GIT_MESSAGE.format(cwd=cwd)}
     gate_cfg = cfg["gate"]
     lines = [f"[loop-hooks] gate active: {gate_cfg['command']}"]
     if cfg.get("_notice"):

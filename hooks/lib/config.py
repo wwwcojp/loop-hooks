@@ -4,6 +4,11 @@ from pathlib import Path
 
 from . import fingerprint
 
+# 入口(gate.py / session_start.py)が共有する利用者向け文言。ずれると人間向けと
+# エージェント向けの表示が食い違うので一箇所に置く。
+DISABLED_PREFIX = "[loop-hooks] gate disabled: "
+NOT_GIT_MESSAGE = ("not a git repository ({cwd}). loop-hooks uses git to detect changes.")
+
 CONFIG_NAME = ".loop-hooks.json"
 EVENTS = ("stop", "subagent_stop", "teammate_idle")
 # hooks.json の timeout(3600)より確実に短くする。Claude Code 側が先にフックを殺すと
