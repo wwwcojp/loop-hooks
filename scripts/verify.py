@@ -11,6 +11,8 @@ stdlib のみ。hooks/ は import しない(ゲート対象とゲート実行者
 
 from __future__ import annotations
 
+import os
+import shlex
 import subprocess
 import sys
 from collections.abc import Sequence
@@ -31,25 +33,37 @@ class Check:
     cmd: list[str]
     # 終了コードがこの集合に含まれれば成功。git grep は「不一致=1」が成功なので反転に使う
     ok_codes: frozenset[int] = frozenset({0})
+    cwd: str = "."  # repo_root からの相対
+    env: tuple[tuple[str, str], ...] = ()  # 追加の環境変数(frozen なので tuple)
+
+
+def shell_line(check: Check) -> str:
+    """CI の `run:` に書くべき 1 行。tests/test_verify.py がこれと ci.yml を突き合わせる。"""
+    prefix = f"cd {check.cwd} && " if check.cwd != "." else ""
+    env = "".join(f"{k}={v} " for k, v in check.env)
+    return prefix + env + shlex.join(check.cmd)
 
 
 STAGES: dict[str, list[Check]] = {
     "quick": [
         Check("leak", ["git", "grep", "-nP", LEAK_REGEX, "--"], ok_codes=frozenset({1})),
         Check("lint", ["uv", "run", "ruff", "check", "hooks", "tests", "scripts"]),
+        Check("format", ["uv", "run", "ruff", "format", "--check", "hooks", "tests", "scripts"]),
         Check("tests", ["uv", "run", "pytest", "-q"]),
     ],
 }
 
 
 def _run(check: Check, repo_root: Path) -> tuple[bool, str]:
+    env = {**os.environ, **dict(check.env)} if check.env else None
     try:
         r = subprocess.run(
             check.cmd,
-            cwd=repo_root,
+            cwd=repo_root / check.cwd,
             capture_output=True,
             text=True,
             timeout=CHECK_TIMEOUT_SEC,
+            env=env,
         )
     except subprocess.TimeoutExpired:
         return False, f"timed out after {CHECK_TIMEOUT_SEC}s"

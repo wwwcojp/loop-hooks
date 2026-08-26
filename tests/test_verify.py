@@ -37,26 +37,55 @@ def _extract_ci_run_steps(ci_yaml: str) -> list[str]:
     return steps
 
 
-def test_quick_stage_mirrors_ci():
-    """spec §2.1: quick は CI と同じコマンド・同じ順序。片方を変えたらもう片方も変える。
+def test_shell_lineは単純コマンドをそのまま返す():
+    assert verify.shell_line(verify.Check("x", ["uv", "run", "pytest", "-q"])) == "uv run pytest -q"
 
-    両方向で検査する: ランナー側のコマンドを固定し、CI の run ステップを全数抽出して
-    1 対 1・順序も一致させる。CI にステップが増えても、フラグが変わっても落ちる。
+
+def test_shell_lineはcwdとenvを前置する():
+    c = verify.Check("x", ["uv", "run", "lint-imports"], cwd="hooks", env=(("PYTHONPATH", "."),))
+    assert verify.shell_line(c) == "cd hooks && PYTHONPATH=. uv run lint-imports"
+
+
+def test_shell_lineは空白を含む引数をクォートする():
+    c = verify.Check("x", ["git", "grep", "-nP", "a b", "--"])
+    assert verify.shell_line(c) == "git grep -nP 'a b' --"
+
+
+def test_run_stageはcwdとenvを反映する(tmp_path):
+    (tmp_path / "sub").mkdir()
+    c = verify.Check(
+        "x",
+        ["sh", "-c", 'test "$(pwd)" = "$EXPECT" && test "$FLAG" = on'],
+        cwd="sub",
+        env=(("FLAG", "on"), ("EXPECT", str((tmp_path / "sub").resolve()))),
+    )
+    assert verify.run_stage("quick", [c], repo_root=tmp_path) is True
+
+
+def test_quick_stage_mirrors_ci():
+    """spec §3.5: quick は CI の test ジョブと同じコマンド・同じ順序。
+
+    ランナー側の Check から CI に書くべき 1 行(shell_line)を生成し、ci.yml の test ジョブの
+    run ステップと 1 対 1・順序も一致させる。leak だけは CI 側が if ブロックなので部分一致。
+    どちらか片方だけ変えると落ちる(両方向)。
     """
     ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    assert [c.name for c in verify.STAGES["quick"]] == ["leak", "lint", "tests"]
-    leak, lint, tests = verify.STAGES["quick"]
-    assert leak.cmd[:3] == ["git", "grep", "-nP"] and leak.ok_codes == frozenset({1})
-    assert lint.cmd == ["uv", "run", "ruff", "check", "hooks", "tests", "scripts"]
-    assert tests.cmd == ["uv", "run", "pytest", "-q"]
-
+    quick = verify.STAGES["quick"]
+    assert quick[0].name == "leak" and quick[0].ok_codes == frozenset({1})
     run_steps = _extract_ci_run_steps(ci)
-    assert len(run_steps) == 3, f"CI の run ステップ数が想定と違う: {run_steps!r}"
-    leak_step, lint_step, tests_step = run_steps
-    assert f"git grep -nP '{verify.LEAK_REGEX}' --" in leak_step
+    assert len(run_steps) == len(quick), f"CI の run ステップ数が quick と違う: {run_steps!r}"
+    leak_step = run_steps[0]
+    assert verify.shell_line(quick[0]) in leak_step
     assert re.search(r"\bif\b.*\bexit 1\b", leak_step, re.S), leak_step
-    assert lint_step.strip() == "uv run ruff check hooks tests scripts"
-    assert tests_step.strip() == "uv run pytest -q"
+    for check, step in zip(quick[1:], run_steps[1:]):
+        assert step.strip() == verify.shell_line(check), check.name
+
+
+def test_quickにformatチェックがある():
+    names = [c.name for c in verify.STAGES["quick"]]
+    assert names.index("format") == names.index("lint") + 1
+    fmt = next(c for c in verify.STAGES["quick"] if c.name == "format")
+    assert fmt.cmd == ["uv", "run", "ruff", "format", "--check", "hooks", "tests", "scripts"]
 
 
 def test_全チェックが成功すればTrue(tmp_path):

@@ -28,5 +28,7 @@ jobs:
           fi
       - name: Lint
         run: uv run ruff check hooks tests scripts
+      - name: Format
+        run: uv run ruff format --check hooks tests scripts
       - name: Test
         run: uv run pytest -q
