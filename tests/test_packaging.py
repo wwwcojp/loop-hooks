@@ -121,3 +121,10 @@ def test_ruffのSルールが有効でtestsだけS101とS603を除外する():
     lint = cfg["tool"]["ruff"]["lint"]
     assert "S" in lint["select"]
     assert lint["per-file-ignores"] == {"tests/*": ["S101", "S603"]}
+
+
+def test_dependabotがActionsを週次で追う():
+    """spec §3.6: SHA ピン留めした Actions の更新は Dependabot に任せる。"""
+    text = (ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8")
+    assert 'package-ecosystem: "github-actions"' in text
+    assert 'interval: "weekly"' in text
