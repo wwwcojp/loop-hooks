@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.3.1] - 2026-08-26
+
+### Added
+- **The plugin now gates its own repository** (`.loop-hooks.json` → `uv run python
+  scripts/verify.py quick`, the same three commands as CI: home-path leak check, ruff,
+  pytest). `tests/test_verify.py` keeps the runner and `ci.yml` in lockstep.
+  Dogfooding rules for contributors are in `CLAUDE.md`.
+
+### Fixed
+- **A git failure no longer silently disables the gate.** When the fingerprint cannot
+  be computed, the gate runs the verification command instead of recording `skipped`
+  (`None == None` matched an unverified repository). The decision log notes
+  `fingerprint unavailable`, and a pass in that state does not record `verified`.
+- **`/loop-hooks:status` always shows the latest `ran` decision**, even when the last
+  five decisions are all `skipped`. It is appended as a sixth line when needed.
+- **State writes never raise.** A state directory that cannot be created is ignored;
+  the gate simply runs again next time.
+- **Decision-log trimming is atomic** (write to a temp file, then `os.replace`), so a
+  crash or a concurrent session cannot leave a half-written log.
+- `--status` is covered by a test that injects an exception and checks it still exits 0.
+
+### Upgrading
+- No configuration changes. No entry-point files moved, so a running session keeps
+  working; restart Claude Code to pick up the fixes.
+
 ## [0.3.0] - 2026-08-26
 
 ### Added

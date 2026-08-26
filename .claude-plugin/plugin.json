@@ -1,6 +1,6 @@
 {
   "name": "loop-hooks",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Change-gated verification gate at end of turn (runs your per-repo verify command)",
   "author": {"name": "wwwcojp"}
 }
