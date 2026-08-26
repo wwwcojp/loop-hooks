@@ -600,7 +600,7 @@ def test_statusは正常時にrenderの結果を出す(tmp_path, capsys):
 
 
 def test_fingerprintが取れなくても同じ状態を二度ブロックしない(tmp_path, monkeypatch):
-    """最終レビュー: fp None で blocked ガードが迂回され、TeammateIdle が無限に exit 2 になっていた。"""
+    """最終レビュー: fp None で blocked ガードが迂回され、TeammateIdle が無限に exit 2 になる。"""
     event = setup_repo(tmp_path, "false")
     event["hook_event_name"] = "TeammateIdle"
     event.pop("stop_hook_active", None)
