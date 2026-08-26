@@ -8,16 +8,22 @@ import verify
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-def _extract_ci_run_steps(ci_yaml: str) -> list[str]:
-    """ci.yml の `run:` 本文を出現順に取り出す(YAML パーサを足さないための最小実装)。
+def _extract_ci_run_steps(ci_yaml: str, job: str = "test") -> list[str]:
+    """ci.yml の指定ジョブの `run:` 本文を出現順に取り出す(YAML パーサを足さないための最小実装)。
 
+    `jobs:` 配下で `  <job>:` から次の 2 スペースインデントのキーまでを対象にする。
     `run: |` のブロックはインデントが戻るまで、`run: cmd` は 1 行。
     """
     lines = ci_yaml.splitlines()
+    start = next(i for i, ln in enumerate(lines) if ln.rstrip() == f"  {job}:")
+    end = next(
+        (i for i in range(start + 1, len(lines)) if re.match(r"^  \S", lines[i])), len(lines)
+    )
+    section = lines[start:end]
     steps: list[str] = []
     i = 0
-    while i < len(lines):
-        m = re.match(r"^(\s*)-?\s*run:\s*(.*)$", lines[i])
+    while i < len(section):
+        m = re.match(r"^(\s*)-?\s*run:\s*(.*)$", section[i])
         if not m:
             i += 1
             continue
@@ -28,13 +34,39 @@ def _extract_ci_run_steps(ci_yaml: str) -> list[str]:
             continue
         body = []
         i += 1
-        while i < len(lines) and (
-            not lines[i].strip() or len(lines[i]) - len(lines[i].lstrip()) > indent
+        while i < len(section) and (
+            not section[i].strip() or len(section[i]) - len(section[i].lstrip()) > indent
         ):
-            body.append(lines[i])
+            body.append(section[i])
             i += 1
         steps.append("\n".join(body))
     return steps
+
+
+def test_extractはジョブを絞る():
+    ci = "jobs:\n  test:\n    steps:\n      - run: a\n  security:\n    steps:\n      - run: b\n"
+    assert _extract_ci_run_steps(ci, "test") == ["a"]
+    assert _extract_ci_run_steps(ci, "security") == ["b"]
+
+
+def test_ciのsecurityジョブはzizmorとpip_auditを回す():
+    """spec §3.5: quick には入れない検査。CI 側だけに存在する。"""
+    ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    steps = _extract_ci_run_steps(ci, "security")
+    assert any("zizmor" in s for s in steps) and any("pip-audit" in s for s in steps)
+
+
+def test_ciのActionsはSHAでピン留めされている():
+    ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    uses = re.findall(r"uses:\s*(\S+)", ci)
+    assert uses, "uses が無い"
+    for u in uses:
+        assert re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", u), f"SHA でピン留めされていない: {u}"
+
+
+def test_ciはpermissionsを明示する():
+    ci = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert re.search(r"^permissions:\n  contents: read\n", ci, re.M)
 
 
 def test_shell_lineは単純コマンドをそのまま返す():
