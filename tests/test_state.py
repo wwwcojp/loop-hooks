@@ -44,6 +44,8 @@ def test_CLAUDE_PLUGIN_DATA配下に置かれる(monkeypatch, tmp_path):
 
 def test_CLAUDE_PLUGIN_DATAが無ければXDGキャッシュを使う(monkeypatch, tmp_path):
     monkeypatch.delenv("CLAUDE_PLUGIN_DATA", raising=False)
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))  # 実ホームのプラグイン置き場を見ない
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
     state.write_verified(REPO, "abc123")
     assert list((tmp_path / "loop-hooks").rglob("*.json"))
@@ -96,3 +98,45 @@ def test_書き込めなくても例外を出さない(tmp_path, monkeypatch):
     monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(blocked_dir))
     state.write_verified("/home/USER/repo", "abc")  # 例外にならない
     assert state.read_verified("/home/USER/repo") is None
+
+
+def _plugin_data(home: Path, name: str) -> Path:
+    d = home / ".claude" / "plugins" / "data" / name / "state"
+    d.mkdir(parents=True)
+    return d
+
+
+def test_CLAUDE_PLUGIN_DATAが無ければプラグインのデータ置き場を探す(monkeypatch, tmp_path):
+    """0.3.2: ターミナルからの --status はフックと同じ記録を読む。"""
+    monkeypatch.delenv("CLAUDE_PLUGIN_DATA", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    found = _plugin_data(tmp_path, "loop-hooks-loop-hooks")
+    assert state.state_dir() == found
+
+
+def test_プラグインのデータ置き場はCLAUDE_CONFIG_DIRを優先する(monkeypatch, tmp_path):
+    monkeypatch.delenv("CLAUDE_PLUGIN_DATA", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    cfg = tmp_path / "cfg"
+    d = cfg / "plugins" / "data" / "loop-hooks-loop-hooks" / "state"
+    d.mkdir(parents=True)
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(cfg))
+    assert state.state_dir() == d
+
+
+def test_データ置き場が複数あれば新しい方を使う(monkeypatch, tmp_path):
+    import os
+    monkeypatch.delenv("CLAUDE_PLUGIN_DATA", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    old = _plugin_data(tmp_path, "loop-hooks-other")
+    new = _plugin_data(tmp_path, "loop-hooks-loop-hooks")
+    os.utime(old, (1, 1))
+    assert state.state_dir() == new
+
+
+def test_データ置き場が無ければXDGキャッシュに戻る(monkeypatch, tmp_path):
+    monkeypatch.delenv("CLAUDE_PLUGIN_DATA", raising=False)
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg"))
+    assert state.state_dir() == tmp_path / "xdg" / "loop-hooks" / "state"

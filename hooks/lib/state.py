@@ -16,11 +16,33 @@ from pathlib import Path
 
 
 def state_dir() -> Path:
+    """記録の置き場。フックには CLAUDE_PLUGIN_DATA が渡るのでそれを使う。
+
+    渡らない経路(ターミナルからの --status)では、Claude Code がプラグインに割り当てる
+    データ置き場(`<config dir>/plugins/data/loop-hooks-<marketplace>/`)を探し、
+    フックと同じ記録を読めるようにする。無ければ XDG キャッシュ。
+    """
     base = os.environ.get("CLAUDE_PLUGIN_DATA")
     if base:
         return Path(base) / "state"
+    found = _plugin_data_dir()
+    if found is not None:
+        return found
     cache = os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache"
     return Path(cache) / "loop-hooks" / "state"
+
+
+def _plugin_data_dir() -> Path | None:
+    """`<config dir>/plugins/data/loop-hooks-*/state` のうち最も新しいもの。無ければ None。"""
+    config_dir = Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
+    try:
+        candidates = [p / "state" for p in (config_dir / "plugins" / "data").glob("loop-hooks-*")
+                      if (p / "state").is_dir()]
+        if not candidates:
+            return None
+        return max(candidates, key=lambda p: p.stat().st_mtime)
+    except OSError:
+        return None
 
 
 def key(root: str) -> str:
