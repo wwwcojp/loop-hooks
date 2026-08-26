@@ -5,7 +5,7 @@ description = "Change-gated verification for Claude Code: run your verify comman
 requires-python = ">=3.10"
 
 [dependency-groups]
-dev = ["pytest>=8.0", "ruff>=0.8"]
+dev = ["pytest>=8.0", "ruff>=0.8", "tomli>=2.0; python_version < '3.11'"]
 
 [tool.ruff]
 line-length = 100
@@ -13,7 +13,12 @@ line-length = 100
 [tool.ruff.lint]
 # E402 を有効にすることで、hooks/ を import path に足すための sys.path.insert より
 # 後ろに置いた import に付けた `# noqa: E402` が意味を持つ。
-select = ["E", "F", "I", "W"]
+# S(flake8-bandit): subprocess の呼出箇所を明示的に受け入れる(行単位 noqa + 理由)。
+select = ["E", "F", "I", "W", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+# assert はテストの本質。S603 はテストが git を argv リストで呼ぶ箇所(ユーザー入力なし)。
+"tests/*" = ["S101", "S603"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

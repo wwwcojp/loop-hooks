@@ -57,7 +57,7 @@ STAGES: dict[str, list[Check]] = {
 def _run(check: Check, repo_root: Path) -> tuple[bool, str]:
     env = {**os.environ, **dict(check.env)} if check.env else None
     try:
-        r = subprocess.run(
+        r = subprocess.run(  # noqa: S603 -- argv は STAGES に固定。ユーザー入力なし
             check.cmd,
             cwd=repo_root / check.cwd,
             capture_output=True,

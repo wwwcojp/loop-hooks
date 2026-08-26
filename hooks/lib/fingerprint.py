@@ -15,7 +15,10 @@ GIT_TIMEOUT_SEC = 30
 def _git(cwd: str, *args: str) -> bytes | None:
     """gitの標準出力を返す。失敗したら None。"""
     try:
-        r = subprocess.run(("git",) + args, cwd=cwd, capture_output=True, timeout=GIT_TIMEOUT_SEC)
+        # argv は固定の git サブコマンド。入力はパスのみ
+        r = subprocess.run(  # noqa: S603
+            ("git",) + args, cwd=cwd, capture_output=True, timeout=GIT_TIMEOUT_SEC
+        )
     except (OSError, subprocess.TimeoutExpired):
         return None
     return r.stdout if r.returncode == 0 else None

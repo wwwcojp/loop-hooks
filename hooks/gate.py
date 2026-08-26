@@ -48,7 +48,8 @@ def _kill_group(proc: subprocess.Popen) -> None:
 
 def run_gate(cmd: str, cwd: str, timeout: int) -> tuple[bool, str]:
     try:
-        proc = subprocess.Popen(
+        # 検証のシェル実行が機能そのもの。コマンドは HEAD の設定から読む
+        proc = subprocess.Popen(  # noqa: S602
             cmd,
             shell=True,
             cwd=cwd,

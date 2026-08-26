@@ -3,6 +3,11 @@
 import json
 from pathlib import Path
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10
+    import tomli as tomllib  # type: ignore[no-redef]
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -108,3 +113,11 @@ def test_statusスキルはCLAUDE_PLUGIN_DATAをコマンドに渡す():
     assert 'CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" uv run' in skill
     head = skill.split("---")[1]
     assert 'CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" uv run' in head, "allowed-tools も同じ形に"
+
+
+def test_ruffのSルールが有効でtestsだけS101とS603を除外する():
+    """spec §3.2: hooks/scripts は行単位 noqa のみ、tests は per-file-ignores。"""
+    cfg = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    lint = cfg["tool"]["ruff"]["lint"]
+    assert "S" in lint["select"]
+    assert lint["per-file-ignores"] == {"tests/*": ["S101", "S603"]}
