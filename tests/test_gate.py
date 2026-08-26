@@ -597,3 +597,15 @@ def test_statusは内部で例外が出ても落ちずに0で終わる(monkeypat
 def test_statusは正常時にrenderの結果を出す(tmp_path, capsys):
     assert gate.status_main(str(tmp_path)) == 0
     assert capsys.readouterr().out.startswith("loop-hooks status")
+
+
+def test_fingerprintが取れなくても同じ状態を二度ブロックしない(tmp_path, monkeypatch):
+    """最終レビュー: fp None で blocked ガードが迂回され、TeammateIdle が無限に exit 2 になっていた。"""
+    event = setup_repo(tmp_path, "false")
+    event["hook_event_name"] = "TeammateIdle"
+    event.pop("stop_hook_active", None)
+    monkeypatch.setattr(fingerprint, "compute", lambda root, cfg: None)
+    first = gate.handle(event)
+    assert first.get("_exit_code") == 2
+    second = gate.handle(event)
+    assert second.get("_exit_code") is None and "systemMessage" in second

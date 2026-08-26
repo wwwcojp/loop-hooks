@@ -81,13 +81,14 @@ def _refuse(hook_event: str, root: str, current: str | None,
     エージェントは何も直していないので、再ブロックしても同じ失敗を繰り返すだけ
     になる。この規則は stop_hook_active に依存しないため、そのフラグが伝播しない
     状況や、TeammateIdle のようにフラグ自体が無いイベントでも閉じ込めない。
+    フィンガープリントが取れない場合は固定キーで同じ規則を適用する。
     """
     if event.get("stop_hook_active"):
         return {"systemMessage": WARN + detail}
-    if current is not None and current == state.read_blocked(root):
+    key = current if current is not None else "fp-unavailable"
+    if key == state.read_blocked(root):
         return {"systemMessage": WARN + detail}
-    if current is not None:
-        state.write_blocked(root, current)
+    state.write_blocked(root, key)
     if hook_event == "TeammateIdle":
         # teammate は JSON では止められない(continue:false は teammate 自体を終わらせる)
         return {"_exit_code": 2, "_stderr": FEEDBACK + detail}
