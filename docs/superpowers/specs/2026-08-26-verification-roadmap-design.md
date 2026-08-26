@@ -12,6 +12,7 @@ safe-dev-hooks `loop-engineering-phase1/phase2` spec と `.claude/rules/dogfoodi
 |---|---|
 | 全節 | 確認済み(2026-08-26 チャットで合意。静的セキュリティ検査 §3.1・import-linter §3.2 を追記のうえ承認) |
 | 第 1 段階 | **完了(0.3.1、2026-08-26)**。計画は `docs/superpowers/archive/plans/2026-08-26-phase1-dogfooding.md` |
+| 第 2 段階 | 子 spec `2026-08-27-phase2-static-checks-design.md`(確認済み 2026-08-27) |
 
 ## 1. 目的と現状
 
@@ -198,7 +199,8 @@ loop-hooks の攻撃面は小さいが特殊で、**「リポジトリの設定�
   2 件で、どちらも設計どおり。**行単位の `# noqa: S602 -- <理由>` で明示的に受け入れる。**
   理由に「コマンドは HEAD の `.loop-hooks.json` から読む(0.2.1)」と書き、信頼境界の
   文書化を兼ねる。ファイル単位・ルール単位の除外はしない(新しい検出が埋もれる)。
-- `tests/` には `S101`(assert)を除外して適用する。
+- `tests/` は `per-file-ignores` で `S101`(assert)と `S603`(argv リストでの git 呼出)を除外する
+  (子 spec 2026-08-27 §3.2。「ファイル単位の除外をしない」は hooks / scripts に対する規則)。
 - `S` を `[tool.ruff.lint] select` に足す。`E402` の既存設定と同じ場所。
 
 #### 受け入れ条件
