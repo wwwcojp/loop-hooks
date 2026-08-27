@@ -20,6 +20,23 @@ settings.load_profile(
     else os.environ.get("HYPOTHESIS_PROFILE", "default")
 )
 
+MUTATION_MAX_EXAMPLES = 5
+
+
+def pytest_runtest_setup(item):
+    """mutmut は fork した同一プロセスで pytest を再実行するので、変異実行時の例数はここで絞る。
+
+    conftest は import 時にキャッシュされ、`settings.load_profile` は再評価されない。
+    hypothesis は `@given` 済み関数の `_hypothesis_internal_use_settings` を呼出時に読むので、
+    MUTANT_UNDER_TEST が付いていればそこを差し替える(私用属性だが、下のテストが検出する)。
+    """
+    if not os.environ.get("MUTANT_UNDER_TEST"):
+        return
+    fn = getattr(item, "obj", None)
+    current = getattr(fn, "_hypothesis_internal_use_settings", None)
+    if current is not None:
+        fn._hypothesis_internal_use_settings = settings(current, max_examples=MUTATION_MAX_EXAMPLES)
+
 
 @pytest.fixture(autouse=True)
 def 状態ディレクトリを隔離する(tmp_path_factory, monkeypatch):

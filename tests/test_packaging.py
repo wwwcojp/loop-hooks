@@ -163,3 +163,29 @@ def test_hypothesisのプロファイルが登録されている():
     for name, n in (("default", 25), ("thorough", 300), ("mutation", 5)):
         prof = settings.get_profile(name)
         assert prof.max_examples == n and prof.deadline is None, name
+
+
+def test_MUTANT_UNDER_TESTがあればhypothesisの例数が実行時に5へ絞られる(monkeypatch):
+    """mutmut は同一プロセスで fork するので、conftest の import 時選択では効かない。"""
+    import sys
+    import types
+
+    from hypothesis import given, settings
+    from hypothesis import strategies as st
+
+    sys.path.insert(0, str(ROOT / "tests"))
+    import conftest
+
+    @settings(deadline=None)
+    @given(st.integers())
+    def prop(x):
+        pass
+
+    item = types.SimpleNamespace(obj=prop)
+    monkeypatch.delenv("MUTANT_UNDER_TEST", raising=False)
+    conftest.pytest_runtest_setup(item)
+    assert prop._hypothesis_internal_use_settings.max_examples == 25
+    monkeypatch.setenv("MUTANT_UNDER_TEST", "hooks.lib.x__mutmut_1")
+    conftest.pytest_runtest_setup(item)
+    assert prop._hypothesis_internal_use_settings.max_examples == 5
+    assert prop._hypothesis_internal_use_settings.deadline is None
