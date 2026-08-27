@@ -147,6 +147,16 @@ def test_判定式_指紋が取れなければ両方とも走る側に倒す(tmp
     assert rec["decision"] == "ran" and rec["note"] == "fingerprint unavailable"
 
 
+def test_判定式_未検証で指紋も取れなければ両方とも走る側に倒す(tmp_path, monkeypatch):
+    root = _repo(tmp_path)  # verified は無い
+    monkeypatch.setattr(fingerprint, "compute", lambda root, gate_cfg: None)
+    info = status.collect(root)
+    assert info["fingerprint"] is None and info["verified"] is None
+    assert info["will_run"] is True
+    gate.handle(_stop(root))
+    assert _last(root)["decision"] == "ran"
+
+
 def test_判定式_blockedは現在の指紋と一致するときだけで再ブロックしない(tmp_path):
     root = _repo(tmp_path, command="false")
     assert status.collect(root)["blocked"] is False

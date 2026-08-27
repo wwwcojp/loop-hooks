@@ -65,7 +65,8 @@ def collect(cwd: str) -> dict[str, Any]:
     info.update(
         fingerprint=current,
         verified=verified,
-        will_run=current != verified,
+        # gate と同じ: 指紋が取れなければ走る側に倒す
+        will_run=current is None or current != verified,
         blocked=current is not None and current == state.read_blocked(root),
     )
     return info

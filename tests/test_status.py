@@ -110,7 +110,8 @@ def test_壊れたログ記録でも例外にならない(tmp_path):
     assert isinstance(out, str)
 
 
-def test_fingerprintがNoneならverifiedと比較してwill_run(tmp_path, monkeypatch):
+def test_fingerprintがNoneならverifiedの有無によらずwill_run(tmp_path, monkeypatch):
+    """fingerprintが取れなければ、verifiedの有無によらず常にwill_run は True(gate と同じ判定式)。"""
     monkeypatch.setattr(status.fingerprint, "compute", lambda *a, **k: None)
 
     with_verified_dir = tmp_path / "with_verified"
@@ -122,7 +123,7 @@ def test_fingerprintがNoneならverifiedと比較してwill_run(tmp_path, monke
     without_verified_dir = tmp_path / "without_verified"
     without_verified_dir.mkdir()
     without_verified = repo(without_verified_dir)
-    assert status.collect(str(without_verified))["will_run"] is False
+    assert status.collect(str(without_verified))["will_run"] is True
 
 
 def test_recentには最新のran記録が必ず含まれる(tmp_path):
