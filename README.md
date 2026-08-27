@@ -330,6 +330,12 @@ first run.
 `tests/test_properties.py` holds hypothesis property tests (25 examples in the gate and CI, 300 in
 `verify.py all`).
 
+`tests/contracts/*.json` are golden files for the hook I/O contract with Claude Code (input event →
+output JSON, exit code, stderr), checked by `tests/test_contracts.py`. When the contract changes,
+edit the golden by hand and update its `checked` date; there is no auto-update switch.
+`tests/test_architecture.py` pins structural rules (entry-file imports, gate/status decision
+parity, state written outside the repository, `hooks/lib` never raising).
+
 `uv run python scripts/verify.py all` adds the `properties` stage (300 examples) and mutation testing (mutmut over `hooks/lib`; the
 whole run takes about 1.5–3 minutes) with a per-file score ratchet in `tests/mutation-baseline.json`; it is not part of the gate.
 

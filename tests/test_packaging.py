@@ -217,3 +217,16 @@ def test_MUTANT_UNDER_TESTの例数絞りはクラスのメソッドにも効く
     conftest.pytest_runtest_setup(item)
     assert TestClass.test_method._hypothesis_internal_use_settings.max_examples == 5
     assert TestClass.test_method._hypothesis_internal_use_settings.deadline is None
+
+
+def test_契約ゴールデンは参照URLと確認日を持つ():
+    """公式リファレンスの変更検知は手動(第 5 段階 spec §2.2)。辿れる印だけは必ず残す。"""
+    import re
+
+    files = sorted((ROOT / "tests" / "contracts").glob("*.json"))
+    assert len(files) == 9, [f.name for f in files]
+    for f in files:
+        golden = json.loads(f.read_text(encoding="utf-8"))
+        assert golden["reference"] == "https://code.claude.com/docs/en/hooks", f.name
+        assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", golden["checked"]), f.name
+        assert re.fullmatch(r"(stop|subagent_stop|teammate_idle|session_start)-[a-z-]+", f.stem)

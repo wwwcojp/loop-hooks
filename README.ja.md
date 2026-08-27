@@ -308,6 +308,12 @@ uv run pytest -v
 `tests/test_properties.py` には hypothesis の property-based test がある(ゲートと CI では 25 例、
 `verify.py all` では 300 例)。
 
+`tests/contracts/*.json` は Claude Code とのフック入出力契約(入力イベント → 出力 JSON・終了コード・
+stderr)のゴールデンで、`tests/test_contracts.py` が検査する。契約が変わったらゴールデンを手で直し、
+`checked` の日付を更新する(自動更新の仕組みは無い)。`tests/test_architecture.py` は構造の規則
+(入口の import、gate と status の判定一致、状態がリポジトリ外に書かれること、`hooks/lib` が例外を
+出さないこと)を固定する。
+
 `uv run python scripts/verify.py all` は `properties` ステージ(300 例)と mutation testing(`hooks/lib` に対する mutmut)を追加する(全体で約 1.5〜3 分)。
 ファイル別スコアのラチェットは `tests/mutation-baseline.json` にあり、ゲートには含まれない。
 

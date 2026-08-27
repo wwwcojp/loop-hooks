@@ -146,3 +146,26 @@ def test_入口の出力はゴールデンと一致する(name, tmp_path):
 def test_ゴールデンのケースは9本で名前が揃っている():
     files = {p.stem for p in CONTRACTS.glob("*.json")}
     assert files == set(CASES), files ^ set(CASES)
+
+
+# __main__ 経路(exit code と stderr は入口スクリプトを実際に起動しないと観測できない)。
+# 9 本すべてだと 3 秒近く増えるので、形の異なる 3 本に絞る(spec §2.2)。
+SUBPROCESS_CASES = ("stop-fail", "teammate_idle-fail", "session_start-active")
+
+
+@pytest.mark.parametrize("name", SUBPROCESS_CASES)
+def test_入口スクリプトの標準出力と終了コードはゴールデンと一致する(name, tmp_path):
+    golden = load_golden(name)
+    ctx = prepare(name, tmp_path)
+    event = fill(golden["input"], ctx)
+    entry = "session_start.py" if name.startswith("session_start") else "gate.py"
+    r = subprocess.run(
+        [sys.executable, str(ROOT / "hooks" / entry)],
+        input=json.dumps(event),
+        capture_output=True,
+        text=True,
+    )
+    out = normalize(json.loads(r.stdout), ctx) if r.stdout.strip() else None
+    assert out == golden["output"], name
+    assert r.returncode == golden["exit_code"], name
+    assert normalize(r.stderr, ctx).rstrip("\n") == golden["stderr"], name
