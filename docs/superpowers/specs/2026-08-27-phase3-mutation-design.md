@@ -51,7 +51,7 @@ only_mutate = [
 also_copy = [
   "scripts", "skills", ".claude-plugin", ".github", "docs",
   "README.md", "README.ja.md", "LICENSE", "CLAUDE.md", "CHANGELOG.md",
-  ".loop-hooks.json", "uv.lock",
+  ".loop-hooks.json", "uv.lock", ".gitignore",
 ]
 ```
 
