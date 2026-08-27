@@ -149,8 +149,8 @@ config 93.5 / fingerprint 95.4 / hook_io 86.7 / log 84.4 / state 92.1 / status 9
 | `also_copy` 漏れで mutants 内のテストが落ちる | スパイクの一覧を使う。落ちたら「no tests」ではなく suspicious/error で見える |
 | 3 分の実行が運用で省かれる | `all` の実行を CLAUDE.md の規約に。将来 TaskCompleted フックに載せる案は親 §6.3 |
 | score 目標に届かない | 未達を baseline に記録して次に回す。pragma で誤魔化さない |
-| 特定の変異(リネーム後の `i -= 1` など)が無限ループ化し、mutmut のプロセスが RAM を
-  11GB+ 消費して手動 kill が必要になる(mutmut は segfault を killed として記録する) |
+| 変異 `fingerprint.x__changed_paths__mutmut_47`(リネーム後の `i -= 1`)が無限ループ化し
+  11GB+ の RAM を消費(kill が必要、mutmut は segfault=killed と記録する) |
   対策候補: `ulimit -v` や mutmut 側のタイムアウト設定。実行は当面手動のみで監視する |
 | mutmut のスコアが非決定的に揺れる(ソース・テストに変更が無くても score が変動した例:
   fingerprint 94.8→95.4)。ラチェットが下がる方向に揺れると偽の FAIL になりうる |
