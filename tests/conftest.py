@@ -33,6 +33,7 @@ def pytest_runtest_setup(item):
     if not os.environ.get("MUTANT_UNDER_TEST"):
         return
     fn = getattr(item, "obj", None)
+    fn = getattr(fn, "__func__", fn)  # bound method → 元の関数(属性代入は関数側にしかできない)
     current = getattr(fn, "_hypothesis_internal_use_settings", None)
     if current is not None:
         fn._hypothesis_internal_use_settings = settings(current, max_examples=MUTATION_MAX_EXAMPLES)

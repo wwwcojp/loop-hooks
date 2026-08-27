@@ -189,3 +189,31 @@ def test_MUTANT_UNDER_TESTがあればhypothesisの例数が実行時に5へ絞�
     conftest.pytest_runtest_setup(item)
     assert prop._hypothesis_internal_use_settings.max_examples == 5
     assert prop._hypothesis_internal_use_settings.deadline is None
+
+
+def test_MUTANT_UNDER_TESTの例数絞りはクラスのメソッドにも効く(monkeypatch):
+    """bound method は __func__ を経由して関数側の属性を差し替える。"""
+    import sys
+    import types
+
+    from hypothesis import given, settings
+    from hypothesis import strategies as st
+
+    sys.path.insert(0, str(ROOT / "tests"))
+    import conftest
+
+    class TestClass:
+        @settings(deadline=None)
+        @given(st.integers())
+        def test_method(self, x):
+            pass
+
+    instance = TestClass()
+    item = types.SimpleNamespace(obj=instance.test_method)
+    monkeypatch.delenv("MUTANT_UNDER_TEST", raising=False)
+    conftest.pytest_runtest_setup(item)
+    assert TestClass.test_method._hypothesis_internal_use_settings.max_examples == 25
+    monkeypatch.setenv("MUTANT_UNDER_TEST", "hooks.lib.x__mutmut_1")
+    conftest.pytest_runtest_setup(item)
+    assert TestClass.test_method._hypothesis_internal_use_settings.max_examples == 5
+    assert TestClass.test_method._hypothesis_internal_use_settings.deadline is None
