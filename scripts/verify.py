@@ -6,7 +6,7 @@ loop-hooks の Stop ゲートから `uv run python scripts/verify.py quick` と�
 
 `mutation` は mutmut を毎回フル実行し、ファイル別 score を `tests/mutation-baseline.json`
 とラチェット比較する。`all` は quick 成功後に mutation。どちらも Stop ゲート・CI には
-載せない(約 3 分)。1 変異分の揺れ(mutmut の非決定性)は許容する。
+載せない(約 3 分)。killed 件数で比較し、1 変異分の揺れは許容する。total が変われば再基準化。
 
 evidence は書かない。「走ったか・なぜ走らなかったか」はプラグイン側の判定ログ
 (`/loop-hooks:status`)が持つ。ここは終了コードと出力だけを返す。
@@ -132,29 +132,44 @@ def check_mutation_baseline(
 ) -> tuple[bool, list[str]]:
     """ファイル別ラチェット。(ok, 問題の一覧) を返す。ok で変化があれば baseline を書き換える。
 
-    - 下回ったファイル / baseline にあって結果に無いファイル → fail(全件列挙)
-    - 新規ファイルは登録、上回った分だけ更新。変化が無ければファイルに触らない
-    - 1 変異分の揺れ(mutmut の非決定性)は許容する
+    baseline は {"files": {rel: {"score", "killed", "total"}}}。killed 件数で比較する:
+    - baseline にあって結果に無いファイル → fail
+    - total が同じで killed が baseline より 2 件以上少ない → fail(1 件の揺れは許容し据え置く)
+    - total が変わった / 旧形式(float)→ 比較できないので再基準化(fail しない、`~` で表示)
+    - 新規ファイルは登録、killed が増えた分だけ更新。変化が無ければファイルに触らない
     """
     path = repo_root / BASELINE_REL
-    baseline: dict[str, float] = {}
+    baseline: dict[str, dict[str, Any] | float] = {}  # float は旧形式
     if path.exists():
         baseline = json.loads(path.read_text(encoding="utf-8")).get("files", {})
     problems: list[str] = []
+    new: dict[str, dict[str, Any]] = {}
     for f, b in sorted(baseline.items()):
         if f not in scores:
+            bscore = b["score"] if isinstance(b, dict) else b
             problems.append(
-                f"{f}: baseline {b} にあるが今回の結果に無い(only_mutate から外れている?"
+                f"{f}: baseline {bscore} にあるが今回の結果に無い(only_mutate から外れている?"
                 " 対象の縮小は baseline を手で外す必要がある)"
             )
+            continue
+        s = scores[f]
+        if not isinstance(b, dict):
+            print(f"  ~ {f}: re-baselined (old format)")
+            new[f] = s
+        elif s["total"] != b["total"]:
+            print(f"  ~ {f}: total {b['total']}→{s['total']}, re-baselined")
+            new[f] = s
+        elif s["killed"] < b["killed"] - 1:
+            problems.append(
+                f"{f}: killed {s['killed']}/{s['total']} < baseline {b['killed']}/{b['total']}"
+                f" (score {s['score']} < {b['score']})"
+            )
         else:
-            score = scores[f]["score"]
-            tol = 100.0 / scores[f]["total"]
-            if score < b - tol:
-                problems.append(f"{f}: score {score} < baseline {b}")
+            new[f] = s if s["killed"] > b["killed"] else b
     if problems:
         return False, problems
-    new = {f: max(s["score"], baseline.get(f, 0.0)) for f, s in scores.items()}
+    for f, s in scores.items():
+        new.setdefault(f, s)
     if new != baseline:
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"files": dict(sorted(new.items()))}

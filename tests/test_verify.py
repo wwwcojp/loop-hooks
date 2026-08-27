@@ -3,6 +3,7 @@
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 import verify
 
@@ -210,72 +211,81 @@ def test_mutation_scoresはmetaからファイル別に集計する(tmp_path):
     assert scores == {"hooks/lib/a.py": {"score": 50.0, "killed": 3, "total": 6}}
 
 
+def _entry(killed: int, total: int) -> dict[str, Any]:
+    return {"score": round(killed / total * 100, 1), "killed": killed, "total": total}
+
+
+def _write_baseline(root: Path, files: dict[str, Any]) -> None:
+    (root / "tests").mkdir(exist_ok=True)
+    (root / verify.BASELINE_REL).write_text(json.dumps({"files": files}), encoding="utf-8")
+
+
+def _read_baseline(root: Path) -> dict[str, Any]:
+    return json.loads((root / verify.BASELINE_REL).read_text(encoding="utf-8"))["files"]
+
+
 def test_baselineが無ければ作られる(tmp_path):
-    ok, problems = verify.check_mutation_baseline(
-        tmp_path, {"hooks/lib/a.py": {"score": 80.0, "killed": 8, "total": 10}}
-    )
+    ok, problems = verify.check_mutation_baseline(tmp_path, {"hooks/lib/a.py": _entry(8, 10)})
     assert ok and problems == []
-    data = json.loads((tmp_path / verify.BASELINE_REL).read_text(encoding="utf-8"))
-    assert data["files"] == {"hooks/lib/a.py": 80.0}
+    assert _read_baseline(tmp_path) == {"hooks/lib/a.py": _entry(8, 10)}
 
 
-def test_baselineを下回ればfailで一覧(tmp_path):
-    (tmp_path / "tests").mkdir()
-    (tmp_path / verify.BASELINE_REL).write_text(
-        json.dumps({"files": {"hooks/lib/a.py": 90.0}}), encoding="utf-8"
-    )
-    ok, problems = verify.check_mutation_baseline(
-        tmp_path, {"hooks/lib/a.py": {"score": 70.0, "killed": 7, "total": 10}}
-    )
-    assert not ok and problems == ["hooks/lib/a.py: score 70.0 < baseline 90.0"]
-    assert json.loads((tmp_path / verify.BASELINE_REL).read_text())["files"] == {
-        "hooks/lib/a.py": 90.0
-    }
+def test_baselineは新形式で整形して書く(tmp_path):
+    verify.check_mutation_baseline(tmp_path, {"hooks/lib/b.py": _entry(1, 2), "a.py": _entry(1, 1)})
+    text = (tmp_path / verify.BASELINE_REL).read_text(encoding="utf-8")
+    assert text.endswith("\n") and text.index('"a.py"') < text.index('"hooks/lib/b.py"')
+    assert json.loads(text) == {"files": {"a.py": _entry(1, 1), "hooks/lib/b.py": _entry(1, 2)}}
 
 
-def test_baselineを1変異分だけ下回るのは許容する(tmp_path):
-    """mutmut の非決定性: タイムアウト(-24)が killed 扱いになり score が 1 変異分揺れる。"""
-    (tmp_path / "tests").mkdir()
-    (tmp_path / verify.BASELINE_REL).write_text(
-        json.dumps({"files": {"hooks/lib/a.py": 99.7}}), encoding="utf-8"
-    )
-    scores = {"hooks/lib/a.py": {"score": 99.5, "killed": 387, "total": 389}}
-    ok, problems = verify.check_mutation_baseline(tmp_path, scores)
+def test_baselineを1変異分だけ下回るのは許容しbaselineは据え置く(tmp_path):
+    """mutmut の非決定性で killed が 1 件揺れることがある。下回っても baseline は下げない。"""
+    _write_baseline(tmp_path, {"hooks/lib/a.py": _entry(388, 389)})
+    ok, problems = verify.check_mutation_baseline(tmp_path, {"hooks/lib/a.py": _entry(387, 389)})
     assert ok and problems == []
-    assert json.loads((tmp_path / verify.BASELINE_REL).read_text())["files"] == {
-        "hooks/lib/a.py": 99.7
-    }
+    assert _read_baseline(tmp_path) == {"hooks/lib/a.py": _entry(388, 389)}
 
 
-def test_baselineを2変異分下回ればfail(tmp_path):
-    (tmp_path / "tests").mkdir()
-    (tmp_path / verify.BASELINE_REL).write_text(
-        json.dumps({"files": {"hooks/lib/a.py": 99.7}}), encoding="utf-8"
-    )
-    scores = {"hooks/lib/a.py": {"score": 99.2, "killed": 386, "total": 389}}
-    ok, problems = verify.check_mutation_baseline(tmp_path, scores)
-    assert not ok and problems == ["hooks/lib/a.py: score 99.2 < baseline 99.7"]
+def test_baselineを2変異分下回ればfailで一覧(tmp_path):
+    _write_baseline(tmp_path, {"hooks/lib/a.py": _entry(388, 389)})
+    ok, problems = verify.check_mutation_baseline(tmp_path, {"hooks/lib/a.py": _entry(386, 389)})
+    assert not ok
+    assert problems == ["hooks/lib/a.py: killed 386/389 < baseline 388/389 (score 99.2 < 99.7)"]
+    assert _read_baseline(tmp_path) == {"hooks/lib/a.py": _entry(388, 389)}
 
 
 def test_baselineを上回れば書き換える(tmp_path):
-    (tmp_path / "tests").mkdir()
-    (tmp_path / verify.BASELINE_REL).write_text(
-        json.dumps({"files": {"hooks/lib/a.py": 70.0}}), encoding="utf-8"
-    )
-    ok, _ = verify.check_mutation_baseline(
-        tmp_path, {"hooks/lib/a.py": {"score": 80.0, "killed": 8, "total": 10}}
-    )
+    _write_baseline(tmp_path, {"hooks/lib/a.py": _entry(7, 10)})
+    ok, _ = verify.check_mutation_baseline(tmp_path, {"hooks/lib/a.py": _entry(8, 10)})
     assert ok
-    assert json.loads((tmp_path / verify.BASELINE_REL).read_text())["files"] == {
-        "hooks/lib/a.py": 80.0
-    }
+    assert _read_baseline(tmp_path) == {"hooks/lib/a.py": _entry(8, 10)}
+
+
+def test_totalが変われば下回っても再基準化する(tmp_path, capsys):
+    """変異の母数が変わった(ソース変更・mutmut 更新)ときは比較できないので基準を取り直す。"""
+    _write_baseline(tmp_path, {"hooks/lib/a.py": _entry(146, 153)})
+    ok, problems = verify.check_mutation_baseline(tmp_path, {"hooks/lib/a.py": _entry(140, 150)})
+    assert ok and problems == []
+    assert _read_baseline(tmp_path) == {"hooks/lib/a.py": _entry(140, 150)}
+    assert "  ~ hooks/lib/a.py: total 153→150, re-baselined" in capsys.readouterr().out
+
+
+def test_旧形式のfloat_baselineは失敗させず再基準化する(tmp_path, capsys):
+    _write_baseline(tmp_path, {"hooks/lib/a.py": 99.9})
+    ok, problems = verify.check_mutation_baseline(tmp_path, {"hooks/lib/a.py": _entry(5, 10)})
+    assert ok and problems == []
+    assert _read_baseline(tmp_path) == {"hooks/lib/a.py": _entry(5, 10)}
+    assert "  ~ hooks/lib/a.py: re-baselined (old format)" in capsys.readouterr().out
+
+
+def test_変化が無ければbaselineに触らない(tmp_path):
+    _write_baseline(tmp_path, {"hooks/lib/a.py": _entry(8, 10)})
+    before = (tmp_path / verify.BASELINE_REL).stat().st_mtime_ns
+    ok, _ = verify.check_mutation_baseline(tmp_path, {"hooks/lib/a.py": _entry(8, 10)})
+    assert ok and (tmp_path / verify.BASELINE_REL).stat().st_mtime_ns == before
 
 
 def test_baselineにあって結果に無いファイルはfail(tmp_path):
-    (tmp_path / "tests").mkdir()
-    (tmp_path / verify.BASELINE_REL).write_text(
-        json.dumps({"files": {"hooks/lib/gone.py": 70.0}}), encoding="utf-8"
-    )
+    _write_baseline(tmp_path, {"hooks/lib/gone.py": _entry(7, 10)})
     ok, problems = verify.check_mutation_baseline(tmp_path, {})
     assert not ok and problems
     assert problems[0].startswith("hooks/lib/gone.py: baseline 70.0 にあるが")
