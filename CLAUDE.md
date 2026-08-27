@@ -24,10 +24,14 @@ Claude Code のフックプラグイン。ターン終了時にリポジトリ�
    更新が効いた確認(version がプラグイン本体の新旧を示す)。出なければ `/loop-hooks:status`。
 5. `quick` は CI の `test` ジョブと同じ 6 チェック(leak → ruff check → ruff format → import-linter → pyright → pytest)。CI を変えるときは
    `scripts/verify.py` も変える(`tests/test_verify.py::test_quick_stage_mirrors_ci` が検出する)。
+6. import は `from hooks.lib import …`(ルート起点)。`sys.path` にはプラグインルートを入れる。
+   `from lib import …` に戻すと mutmut の変異キーが合わなくなる(第 3 段階 spec §2.1)。
 
 ## 開発
 
 - テスト: `uv run pytest -q`(`tests/conftest.py` が状態ディレクトリを tmp に隔離する)
 - 検証一式: `uv run python scripts/verify.py quick`
+- 検証一式(mutation 込み): `uv run python scripts/verify.py all`(約 3 分。コミット前・フェーズ完了時に回す)。
+  `tests/mutation-baseline.json` はランナーだけが上げる。手で下げない。`mutants/` は作業領域で触らない
 - 状態の確認: `/loop-hooks:status`(ターミナルなら `uv run hooks/gate.py --status .`。どちらも `records` 行に読んだ置き場が出る)
 - 実ホームパスをソース・コミットメッセージに書かない(CI が落ちる)。プレースホルダーは `/home/USER`

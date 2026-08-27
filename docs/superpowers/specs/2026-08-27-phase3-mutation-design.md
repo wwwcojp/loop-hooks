@@ -123,6 +123,17 @@ also_copy = [
   動くこと(GitHub 版更新後に確認)。
 - import-linter 3 契約 KEPT(`hooks.lib` 読み替え後)。
 
+確認済み(2026-08-27): `all` 約3分(quick 11.5秒 + mutation 約170秒、928 変異)。baseline:
+config 93.5 / fingerprint 95.4 / hook_io 86.7 / log 84.4 / state 92.1 / status 99.5(初回:
+86.4 / 78.4 / 0.0 / 72.7 / 92.1 / 68.6)。テスト無効化で mutation が FAIL することを確認
+(Task 4 Step 2): `tests/test_log.py` の切詰めテスト2本(`test_上限を超えたら直近だけ残す` と
+`test_切詰めは一時ファイル経由で差し替える`)を同時に弱体化 →
+`! hooks/lib/log.py: score 50.6 < baseline 72.7`、exit 1、baseline 不変(単独ではカバレッジが
+重なって落ちなかった)。未達のファイル: `log.py` は目標 85 に対し 84.4。残り生存 12 件のうち
+`ensure_ascii=None` と `cast` は等価変異、`encoding="utf-8"→None` 系 約10件は環境依存の生存
+(C.UTF-8 ロケールでのみ区別不能。等価ではない)として記録する。`fingerprint.py` の
+`x__changed_paths__mutmut_45` は非等価の生存だが目標(85)を超過しているため未対応。
+
 ## 4. スコープ外
 
 - CI での mutation 実行。
@@ -138,3 +149,10 @@ also_copy = [
 | `also_copy` 漏れで mutants 内のテストが落ちる | スパイクの一覧を使う。落ちたら「no tests」ではなく suspicious/error で見える |
 | 3 分の実行が運用で省かれる | `all` の実行を CLAUDE.md の規約に。将来 TaskCompleted フックに載せる案は親 §6.3 |
 | score 目標に届かない | 未達を baseline に記録して次に回す。pragma で誤魔化さない |
+| 特定の変異(リネーム後の `i -= 1` など)が無限ループ化し、mutmut のプロセスが RAM を
+  11GB+ 消費して手動 kill が必要になる(mutmut は segfault を killed として記録する) |
+  対策候補: `ulimit -v` や mutmut 側のタイムアウト設定。実行は当面手動のみで監視する |
+| mutmut のスコアが非決定的に揺れる(ソース・テストに変更が無くても score が変動した例:
+  fingerprint 94.8→95.4)。ラチェットが下がる方向に揺れると偽の FAIL になりうる |
+  対策候補: 落ちたら1回再実行して判定する、または baseline との比較に許容幅を持たせる
+  (第3段階では記録のみ、実装は次段階) |

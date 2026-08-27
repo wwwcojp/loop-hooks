@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.5.0] - 2026-08-27
+
+### Added
+- **Mutation testing with a ratchet for the repository itself.** `uv run python
+  scripts/verify.py mutation` runs mutmut over `hooks/lib` (928 mutants, about 170 seconds),
+  scores each file, and fails when a file drops below `tests/mutation-baseline.json`;
+  the runner raises the baseline itself when a score improves. `all` = `quick` + `mutation`.
+  Neither is part of the end-of-turn gate or CI.
+- Tests added by the first triage: `hook_io` is now called directly (it was only exercised
+  through subprocesses), `fingerprint` pins the git timeout, `log` pins the UTC timestamp
+  format and trim boundaries, `status.render` has golden output.
+
+### Changed
+- **Imports are rooted at the plugin directory** (`from hooks.lib import …`) so that
+  mutmut's mutant keys match runtime module names. The hook entry files did not move and
+  `hooks.json` is unchanged — **no restart is needed**.
+
+### Upgrading
+- Nothing to do.
+
 ## [0.4.0] - 2026-08-27
 
 ### Added

@@ -224,7 +224,7 @@ the slow stage, commit a per-file score baseline, and fail the stage if any file
 drops below it (the ratchet). Measured on a security-guard codebase: 803 mutants
 in about 11 seconds, and the surviving mutants pointed at boundary conditions
 that were in fact untested. Too slow for every turn; use it as a task-completion
-condition.
+condition. This repository does exactly this for itself; see `scripts/verify.py mutation`.
 
 ### Include formatters and generators in the gate
 
@@ -326,6 +326,9 @@ The repository gates itself with this plugin: `uv run python scripts/verify.py q
 runs the same checks as CI's `test` job (home-path leak check, ruff check/format,
 import-linter, pyright, pytest). pyright needs `node` on PATH, or downloads one on
 first run.
+
+`uv run python scripts/verify.py all` adds mutation testing (mutmut over `hooks/lib`, about three
+minutes) with a per-file score ratchet in `tests/mutation-baseline.json`; it is not part of the gate.
 
 ## Limitations
 

@@ -208,7 +208,8 @@ Python リポジトリのテスト 240 件で約1秒)を Stop に、`all` をタ
 baseline をリポジトリにコミットして、baseline を下回った場合にステージを失敗させる
 (ラチェット)。実測では、セキュリティガードのコードベースで 803 変異が約11秒で完了し、
 生き残った変異が実際に未テストだった境界条件を示した。毎ターン実行するには時間がかかる
-ため、タスク完了の条件として使う。
+ため、タスク完了の条件として使う。このリポジトリ自身も同じことをしている。
+`scripts/verify.py mutation` を参照。
 
 ### フォーマッタや生成器をゲートに含める
 
@@ -303,6 +304,9 @@ uv run pytest -v
 ```
 
 このリポジトリはこのプラグイン自身をゲートしている。`uv run python scripts/verify.py quick` は CI の `test` ジョブと同じチェックを実行する(ホームパスリーク検査、ruff check/format、import-linter、pyright、pytest)。pyright は PATH の `node` を使う(無ければ初回に取得する)。
+
+`uv run python scripts/verify.py all` は mutation testing(`hooks/lib` に対する mutmut、約3分)を追加する。
+ファイル別スコアのラチェットは `tests/mutation-baseline.json` にあり、ゲートには含まれない。
 
 ## 制限
 
