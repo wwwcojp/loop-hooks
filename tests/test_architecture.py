@@ -12,6 +12,7 @@ tests/test_properties.py(P1: config._validate、P4: log.tail、P6b: state の壊
 
 import ast
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -19,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from hooks import gate  # noqa: E402
-from hooks.lib import fingerprint, log, status  # noqa: E402
+from hooks.lib import fingerprint, log, state, status  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 ENTRIES = ("gate.py", "session_start.py")
@@ -154,3 +155,48 @@ def test_判定式_blockedは現在の指紋と一致するときだけで再ブ
     assert out and "systemMessage" in out and _last(root)["result"] == "warn"
     (tmp_path / "main.ts").write_text("changed\n", encoding="utf-8")
     assert status.collect(root)["blocked"] is False  # 状態が変わればまたブロックする
+
+
+# ---- (c) 状態・ログの書込先はリポジトリ外の既定領域から出ない ----
+
+
+def _files(root: Path) -> set[str]:
+    return {os.path.join(d, f) for d, _, fs in os.walk(root) for f in fs}
+
+
+def _root_variants(tmp_path: Path) -> list[str]:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "sub").mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(repo, target_is_directory=True)
+    return [str(repo), str(repo) + "/", str(repo / "sub" / ".."), str(link)]
+
+
+def test_書込先はどんなroot表現でもstate_dir配下(tmp_path):
+    base = state.state_dir()
+    for root in _root_variants(tmp_path):
+        assert state._path(root).is_relative_to(base), root
+        assert log._path(root).is_relative_to(base), root
+
+
+def test_同じリポジトリの別表現は同じキーに解決される(tmp_path):
+    variants = _root_variants(tmp_path)
+    keys = {state.key(v) for v in variants}
+    assert len(keys) == 1, dict(zip(variants, map(state.key, variants)))
+
+
+def test_書込でリポジトリ内にファイルが増えない(tmp_path):
+    root = Path(_repo(tmp_path))
+    (root / "sub").mkdir()
+    link = tmp_path.parent / f"{tmp_path.name}-link"
+    link.symlink_to(root, target_is_directory=True)
+    before = _files(root)
+    for v in (str(root), str(root) + "/", str(root / "sub" / ".."), str(link)):
+        state.write_verified(v, "fp")
+        state.write_blocked(v, "fp")
+        state.write_noticed(v, "n")
+        log.append(v, {"event": "Stop", "decision": "skipped"})
+    assert _files(root) == before
+    assert state.read_verified(str(root)) == "fp"
+    link.unlink()
