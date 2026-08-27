@@ -10,6 +10,7 @@
 | 節 | 状態 |
 |---|---|
 | 全節 | 確認済み(2026-08-27 チャットで合意: 入口の import 行変更を許容 / 目標 score 85(status 80)/ 0.5.0) |
+| 第 3 段階 | **完了(0.5.0、2026-08-27、main = fc99016)**。計画は `docs/superpowers/archive/plans/2026-08-27-phase3-mutation.md`。CI 初回 success(3.10 / 3.14 / security)。GitHub 版プラグイン更新後の入口動作確認は利用者側で実施 |
 
 ## 1. 目的
 
