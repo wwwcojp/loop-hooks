@@ -164,3 +164,189 @@ def test_バージョンが取れなくても見出しは出る(tmp_path, monkey
     monkeypatch.setattr(config, "plugin_version", lambda: None)
     out = status.render(status.collect(str(repo(tmp_path))))
     assert out.splitlines()[0] == "loop-hooks status"
+
+
+def test_renderのゴールデン_有効で未検証(tmp_path, monkeypatch):
+    """render の書式(ラベル幅・区切り・文言)を固定する。mutation で書式の変異を一括で殺す。"""
+    monkeypatch.setattr(config, "plugin_version", lambda: "9.9.9")
+    monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(tmp_path / "data"))
+    root = str(repo(tmp_path))
+    log.append(root, {"event": "Stop", "decision": "ran", "result": "pass", "ms": 1234})
+    info = status.collect(root)
+    info["fingerprint"] = "f" * 64
+    out = status.render(info)
+    ts = info["recent"][0]["ts"][:16].replace("T", " ")
+    expected = "\n".join(
+        [
+            "loop-hooks status (9.9.9)",
+            f"  repo      {root}",
+            "  config    HEAD (.loop-hooks.json)",
+            f"  command   {GATE['command']}",
+            "  on        stop, subagent_stop, teammate_idle",
+            "  watch     *.ts",
+            "  ignore    *.md",
+            "  timeout   600s",
+            "  state     changed since last pass -> gate will run at next stop",
+            "  blocked   no",
+            f"  records   {tmp_path / 'data' / 'state'}",
+            f"  recent    {ts:<16} Stop          ran       pass  1.2s",
+        ]
+    )
+    assert out == expected
+
+
+def test_renderのゴールデン_設定なし(tmp_path):
+    git(tmp_path, "init", "-q")
+    out = status.render(status.collect(str(tmp_path)))
+    assert out.splitlines()[1:] == [
+        f"  repo      {tmp_path}",
+        "  config    no .loop-hooks.json -> gate inactive in this repository",
+    ]
+
+
+def test_fingerprintとverifiedの値がcollectに残る(tmp_path):
+    r = repo(tmp_path)
+    fp = fingerprint.compute(str(r), GATE)
+    state.write_verified(str(r), fp)
+    info = status.collect(str(r))
+    assert info["fingerprint"] == fp
+    assert info["verified"] == fp
+
+
+def test_recentの先頭5件にranがあれば古いranは足されない(tmp_path):
+    root = str(repo(tmp_path))
+    log.append(root, {"event": "Stop", "decision": "ran", "result": "old", "ms": 1})
+    for _ in range(4):
+        log.append(root, {"event": "Stop", "decision": "skipped"})
+    log.append(root, {"event": "Stop", "decision": "ran", "result": "new", "ms": 2})
+    for _ in range(4):
+        log.append(root, {"event": "Stop", "decision": "skipped"})
+    recent = status.collect(root)["recent"]
+    assert len(recent) == status.RECENT
+    assert any(r.get("decision") == "ran" and r.get("result") == "new" for r in recent)
+    assert not any(r.get("result") == "old" for r in recent)
+
+
+def test_format_recentは各項目を幅つきで並べる():
+    r = {"ts": "2026-08-27T01:02:03Z", "event": "SubagentStop", "decision": "skipped"}
+    assert status._format_recent(r) == "2026-08-27 01:02 SubagentStop  skipped"
+    r2 = {
+        "ts": "2026-08-27T01:02:03Z",
+        "event": "Stop",
+        "decision": "ran",
+        "result": "fail",
+        "ms": 10811,
+        "note": "fingerprint unavailable",
+    }
+    assert (
+        status._format_recent(r2)
+        == "2026-08-27 01:02 Stop          ran       fail  10.8s fingerprint unavailable"
+    )
+
+
+def test_format_recentは項目が無ければ空文字で埋める():
+    assert status._format_recent({}) == ""
+
+
+def test_format_recentのms換算は1000で割る():
+    r = {"ts": "2026-08-27T01:02:03Z", "event": "Stop", "decision": "ran", "ms": 100100}
+    assert status._format_recent(r) == "2026-08-27 01:02 Stop          ran       100.1s"
+
+
+def test_gitでないディレクトリでもstate行の文言が固定(tmp_path):
+    (tmp_path / ".loop-hooks.json").write_text(json.dumps({"gate": GATE}), encoding="utf-8")
+    info = status.collect(str(tmp_path))
+    out = status.render(info)
+    assert "  state     gate disabled: not a git repository" in out.splitlines()
+
+
+def test_検証済みのstate行の文言が固定(tmp_path):
+    r = repo(tmp_path)
+    state.write_verified(str(r), fingerprint.compute(str(r), GATE))
+    out = status.render(status.collect(str(r)))
+    assert "  state     unchanged since last pass -> gate will not run" in out.splitlines()
+
+
+def test_blockedがyesのときの文言が固定(tmp_path):
+    r = repo(tmp_path)
+    fp = fingerprint.compute(str(r), GATE)
+    state.write_blocked(str(r), fp)
+    out = status.render(status.collect(str(r)))
+    assert "  blocked   yes (this state was already blocked once)" in out.splitlines()
+
+
+def test_設定エラーの行が丸ごと固定(tmp_path):
+    git(tmp_path, "init", "-q")
+    (tmp_path / ".loop-hooks.json").write_text("{broken", encoding="utf-8")
+    info = status.collect(str(tmp_path))
+    out = status.render(info)
+    assert out.splitlines()[1:] == [
+        f"  repo      {tmp_path}",
+        f"  config    gate disabled: {info['config_error']}",
+    ]
+    assert len(out.splitlines()) == 3
+
+
+def test_通知行が丸ごと固定(tmp_path):
+    r = repo(tmp_path, commit_config=False)
+    info = status.collect(str(r))
+    out = status.render(info)
+    assert f"  notice    {info['notice']}" in out.splitlines()
+
+
+def test_watchとignoreが複数ならカンマ区切りで並ぶ(tmp_path):
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "config", "user.email", "t@example.com")
+    git(tmp_path, "config", "user.name", "t")
+    git(tmp_path, "config", "commit.gpgsign", "false")
+    gate = {"command": "true", "watch": ["*.ts", "*.js"], "ignore": ["*.md", "*.txt"]}
+    (tmp_path / ".loop-hooks.json").write_text(json.dumps({"gate": gate}), encoding="utf-8")
+    git(tmp_path, "add", "-A")
+    git(tmp_path, "commit", "-qm", "config")
+    out = status.render(status.collect(str(tmp_path)))
+    lines = out.splitlines()
+    assert "  watch     *.ts, *.js" in lines
+    assert "  ignore    *.md, *.txt" in lines
+
+
+def test_recentが複数件なら2件目以降はラベルなしで並ぶ(tmp_path):
+    root = str(repo(tmp_path))
+    log.append(root, {"event": "Stop", "decision": "ran", "result": "pass", "ms": 1})
+    log.append(root, {"event": "Stop", "decision": "skipped"})
+    info = status.collect(root)
+    out = status.render(info)
+    lines = out.splitlines()
+    idx = next(i for i, line in enumerate(lines) if line.startswith("  recent"))
+    # 2 行目以降(2件目)は "  recent" ラベルを繰り返さず、空ラベル(_row("", ...))で揃う。
+    expected = status._row("", status._safe_format_recent(info["recent"][1]))
+    assert lines[idx + 1] == expected
+
+
+def test_recentが無ければその旨を表示する(tmp_path):
+    r = repo(tmp_path)
+    out = status.render(status.collect(str(r)))
+    assert "  recent    (no runs recorded)" in out.splitlines()
+
+
+def test_configが無くてもinfoの全キーが揃う(tmp_path):
+    """collect() の初期辞書のキー名を固定する(未使用のプレースホルダでも形は契約)。"""
+    git(tmp_path, "init", "-q")
+    info = status.collect(str(tmp_path))
+    assert set(info.keys()) == {
+        "cwd",
+        "root",
+        "config_source",
+        "config_error",
+        "notice",
+        "command",
+        "on",
+        "watch",
+        "ignore",
+        "timeout_sec",
+        "fingerprint",
+        "verified",
+        "will_run",
+        "blocked",
+        "recent",
+        "state_dir",
+    }
