@@ -126,6 +126,13 @@ def test_fingerprintがNoneならverifiedの有無によらずwill_run(tmp_path,
     assert status.collect(str(without_verified))["will_run"] is True
 
 
+def test_fingerprintがNoneのstate行は理由を指紋不能と書く(tmp_path, monkeypatch):
+    monkeypatch.setattr(status.fingerprint, "compute", lambda *a, **k: None)
+    out = status.render(status.collect(str(repo(tmp_path))))
+    assert "  state     fingerprint unavailable -> gate will run at next stop" in out
+    assert "changed since last pass" not in out
+
+
 def test_recentには最新のran記録が必ず含まれる(tmp_path):
     """0.3.1: skipped が 5 件続いても、最後に走った結果が status から消えない。"""
     root = str(repo(tmp_path))

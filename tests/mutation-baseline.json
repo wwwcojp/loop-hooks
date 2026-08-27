@@ -27,8 +27,8 @@
     },
     "hooks/lib/status.py": {
       "score": 99.5,
-      "killed": 389,
-      "total": 391
+      "killed": 401,
+      "total": 403
     }
   }
 }

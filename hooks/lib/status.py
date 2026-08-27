@@ -99,6 +99,9 @@ def render(info: dict[str, Any]) -> str:
     lines.append(_row("timeout", f"{info['timeout_sec']}s"))
     if info["root"] is None:
         lines.append(_row("state", "gate disabled: not a git repository"))
+    elif info["fingerprint"] is None:
+        # 指紋が取れない(git が観測できない)。gate は走らせる側に倒すので、理由をそのまま書く
+        lines.append(_row("state", "fingerprint unavailable -> gate will run at next stop"))
     elif info["will_run"]:
         lines.append(_row("state", "changed since last pass -> gate will run at next stop"))
     else:

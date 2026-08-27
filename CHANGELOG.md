@@ -17,7 +17,9 @@
 ### Fixed
 - `--status` / `/loop-hooks:status` now agrees with the gate when the fingerprint cannot be
   computed: `will_run` is true (the gate always runs in that case) and `blocked` compares against
-  the same fixed key the gate uses, instead of reporting "will not run" / "blocked: no".
+  the same fixed key the gate uses, instead of reporting "will not run" / "blocked: no". The
+  `state` line of the status output names that reason ("fingerprint unavailable") instead of
+  claiming a change.
 
 ### Upgrading
 - Nothing to do. No entry-point files or hook definitions changed; no restart needed.
