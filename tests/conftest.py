@@ -26,7 +26,8 @@ settings.register_profile("thorough", max_examples=300, deadline=None)
 settings.register_profile("mutation", max_examples=5, deadline=None)
 settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "default"))
 
-MUTATION_MAX_EXAMPLES = 5
+# 変異ごとの例数は "mutation" プロファイルが唯一の定義(二重定義にしない)。
+MUTATION_MAX_EXAMPLES: int = settings.get_profile("mutation").max_examples
 
 
 def pytest_runtest_setup(item):
