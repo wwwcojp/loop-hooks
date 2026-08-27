@@ -50,6 +50,29 @@ def test_commandが無い設定は_errorになる(tmp_path):
     assert "_error" in cfg
 
 
+def test_エラーはキー名_errorで返す():
+    """呼び出し側(gate / session_start / status)が "_error" in cfg で分岐する。キー名を固定する。"""
+    assert set(config._validate({})) == {"_error"}
+    assert set(config._validate({"gate": {"command": ""}})) == {"_error"}
+
+
+def test_作業ツリーが読めずHEADにも無ければエラー(tmp_path, monkeypatch):
+    """スパイク: `if committed is None` の反転が生き残っていた。"""
+    git(tmp_path, "init", "-q")
+    p = tmp_path / config.CONFIG_NAME
+    p.write_text("{}", encoding="utf-8")
+    real_is_file = Path.is_file
+
+    def boom(self):
+        if self.name == config.CONFIG_NAME:
+            raise OSError("permission denied")
+        return real_is_file(self)
+
+    monkeypatch.setattr(Path, "is_file", boom)
+    result = config.load(str(tmp_path))
+    assert result is not None and "_error" in result and "cannot read" in result["_error"]
+
+
 def test_トップレベルがdictでなければgate_command無しのエラー():
     assert config._validate(["gate"]) == {
         "_error": f"{config.CONFIG_NAME} has no gate.command (string)"
@@ -122,6 +145,16 @@ def test_未知のonは_errorになる(tmp_path):
     assert "_error" in config.load(cwd)
 
 
+def test_onエラーメッセージはイベント名をカンマ区切りで列挙する(tmp_path):
+    """スパイク: ', '.join の区切り文字をすり替える変異が生き残っていた。"""
+    cwd = write(tmp_path, {"gate": {"command": "echo ok", "on": ["bogus"]}})
+    cfg = config.load(cwd)
+    assert cfg["_error"] == (
+        f"{config.CONFIG_NAME}: gate.on must be a non-empty list of "
+        "stop, subagent_stop, teammate_idle"
+    )
+
+
 def test_onが文字列だと_errorになる(tmp_path):
     cwd = write(tmp_path, {"gate": {"command": "echo ok", "on": "stop"}})
     assert "_error" in config.load(cwd)
@@ -169,6 +202,29 @@ def test_作業ツリーで書き換えてもHEADの設定が使われる(tmp_pa
     cfg = config.load(cwd)
     assert cfg["gate"]["command"] == "committed"
     assert "_notice" in cfg
+    assert cfg["_notice"] == (
+        f"{config.CONFIG_NAME} differs from HEAD; using the committed version. "
+        "Commit the change if it is intended"
+    )
+
+
+def test_HEADはあるが作業ツリーが読めなければ欠落扱いの通知(tmp_path, monkeypatch):
+    """スパイク: OSError時の working / notice の初期値をすり替える変異が生き残っていた。
+    working が None のままなら「欠落」通知になるはずが、変異では「差分」通知になってしまう。"""
+    cwd = repo_with_committed(tmp_path, {"gate": {"command": "committed"}})
+    real_is_file = Path.is_file
+
+    def boom(self):
+        if self.name == config.CONFIG_NAME:
+            raise OSError("permission denied")
+        return real_is_file(self)
+
+    monkeypatch.setattr(Path, "is_file", boom)
+    cfg = config.load(cwd)
+    assert cfg["gate"]["command"] == "committed"
+    assert cfg["_notice"] == (
+        f"{config.CONFIG_NAME} is missing from the working tree; using the committed version"
+    )
 
 
 def test_作業ツリーで壊してもHEADの設定が使われる(tmp_path):
@@ -198,6 +254,10 @@ def test_未コミットの設定は使われるが通知が付く(tmp_path):
     cfg = config.load(cwd)
     assert cfg["gate"]["command"] == "untracked"
     assert "not committed" in cfg["_notice"]
+    assert cfg["_notice"] == (
+        f"{config.CONFIG_NAME} is not committed. Commit it so the gate "
+        "cannot be altered by editing the working tree"
+    )
 
 
 def test_gitでないディレクトリでは通知が無い(tmp_path):
@@ -266,4 +326,13 @@ def test_plugin_versionはplugin_jsonのversionを返す():
 
 def test_plugin_versionは読めなければNone(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "PLUGIN_JSON", tmp_path / "missing.json")
+    assert config.plugin_version() is None
+
+
+def test_plugin_versionは文字列でなければNone(monkeypatch, tmp_path):
+    """スパイク: `isinstance(v, str) and v` を `or` にする変異が生き残っていた。
+    version が文字列以外(数値など)なら None を返すはずが、変異では値をそのまま返してしまう。"""
+    p = tmp_path / "plugin.json"
+    p.write_text(json.dumps({"version": 123}), encoding="utf-8")
+    monkeypatch.setattr(config, "PLUGIN_JSON", p)
     assert config.plugin_version() is None

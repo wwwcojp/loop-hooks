@@ -1,7 +1,7 @@
 {
   "files": {
-    "hooks/lib/config.py": 86.4,
-    "hooks/lib/fingerprint.py": 78.4,
+    "hooks/lib/config.py": 93.5,
+    "hooks/lib/fingerprint.py": 94.8,
     "hooks/lib/hook_io.py": 86.7,
     "hooks/lib/log.py": 84.4,
     "hooks/lib/state.py": 92.1,
