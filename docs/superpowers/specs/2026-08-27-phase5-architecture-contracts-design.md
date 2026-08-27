@@ -159,6 +159,15 @@
 - 0.7.0(`pyproject.toml` / `plugin.json` / `uv.lock`)、CHANGELOG(入口無変更、再起動不要)。
 - 不変条件テストで欠陥が見つかった場合は修正し、CHANGELOG の Fixed に記載。
 
+確認済み(2026-08-27): quick 13.99 秒・14.29 秒(0.6.0 の 13.3 秒比 +0.69 秒・+0.99 秒、予算 +3 秒・上限 16.3 秒以内)/
+all 102.8 秒(exit 0)。mutation 内訳: `config.py` 93.5(144/154)、`fingerprint.py` 95.2(140/147)、
+`hook_io.py` 86.7(13/15)、`log.py` 84.4(65/77)、`state.py` 92.9(130/140)、`status.py` 99.5(389/391、
+total 389→391 で再基準化。§2.3 の想定どおり `hooks/lib` 無変更なら動かないはずだったが、`status.py` は本フェーズで
+変更済みのため再基準化された)。発見した欠陥: `hooks/lib/status.py` の `will_run` と `blocked` が、指紋が
+計算できないときに gate(`hooks/gate.py`)と異なる判定をしていた。`will_run` は本来 gate が常に実行する
+ケースなのに偽を返し、`blocked` は gate が使う固定キー `fp-unavailable` ではなく別の扱いをしていた
+(41dc3da, 9412e9e で修正)。
+
 ## 4. リスク
 
 | リスク | 対処 |

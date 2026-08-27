@@ -24,6 +24,7 @@ Claude Code のフックプラグイン。ターン終了時にリポジトリ�
    更新が効いた確認(version がプラグイン本体の新旧を示す)。出なければ `/loop-hooks:status`。
 5. `quick` は CI の `test` ジョブと同じ 6 チェック(leak → ruff check → ruff format → import-linter → pyright → pytest)。CI を変えるときは
    `scripts/verify.py` も変える(`tests/test_verify.py::test_quick_stage_mirrors_ci` が検出する)。
+   構造の規則は `tests/test_architecture.py`、Claude Code との入出力契約は `tests/contracts/`(ゴールデン、手で更新)。入口の文言を変えたらゴールデンも直す
 6. import は `from hooks.lib import …`(ルート起点)。`sys.path` にはプラグインルートを入れる。
    `from lib import …` に戻すと mutmut の変異キーが合わなくなる(第 3 段階 spec §2.1)。
 

@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.7.0] - 2026-08-27
+
+### Added
+- **Architecture tests** (`tests/test_architecture.py`): entry files import only `hooks.lib`
+  (and never `status` at module level); `gate.handle` and `status.collect` make the same
+  decision for the same repository state; state and log files stay under the plugin data
+  directory whatever form the repository path takes (trailing slash, `..`, symlink); every
+  public function in `hooks/lib` degrades instead of raising when the data directory is not
+  writable, `git` is missing, or paths do not exist.
+- **Hook I/O contract goldens** (`tests/contracts/*.json`, `tests/test_contracts.py`): the
+  exact input/output JSON, exit code and stderr for Stop / SubagentStop / TeammateIdle /
+  SessionStart, normalised and compared as whole dictionaries. Each golden records the
+  reference URL and the date it was checked.
+
+### Fixed
+- `--status` / `/loop-hooks:status` now agrees with the gate when the fingerprint cannot be
+  computed: `will_run` is true (the gate always runs in that case) and `blocked` compares against
+  the same fixed key the gate uses, instead of reporting "will not run" / "blocked: no".
+
+### Upgrading
+- Nothing to do. No entry-point files or hook definitions changed; no restart needed.
+
 ## [0.6.0] - 2026-08-27
 
 ### Added
