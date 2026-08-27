@@ -14,6 +14,7 @@ safe-dev-hooks `loop-engineering-phase1/phase2` spec と `.claude/rules/dogfoodi
 | 第 1 段階 | **完了(0.3.1、2026-08-26)**。計画は `docs/superpowers/archive/plans/2026-08-26-phase1-dogfooding.md` |
 | 第 2 段階 | **完了(0.4.0、2026-08-27)**。子 spec `2026-08-27-phase2-static-checks-design.md`、計画は `docs/superpowers/archive/plans/2026-08-27-phase2-static-checks.md` |
 | 第 3 段階 | **完了(0.5.0、2026-08-27)**。スパイク `2026-08-27-mutation-spike-results.md`、子 spec `2026-08-27-phase3-mutation-design.md`、計画は `docs/superpowers/archive/plans/2026-08-27-phase3-mutation.md` |
+| 第 4 段階 | 子 spec `2026-08-27-phase4-pbt-design.md`(確認済み 2026-08-27)。**0.6.0 として実施** |
 
 ## 1. 目的と現状
 
