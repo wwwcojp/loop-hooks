@@ -61,7 +61,9 @@ def _changed_paths(root: str) -> list[bytes] | None:
         status, path = entry[:2], entry[3:]
         paths.append(path)
         if b"R" in status or b"C" in status:
-            i += 1  # リネーム/コピー元のパスは次のフィールドに続く
+            # リネーム/コピー元のパスは次のフィールドに続く。
+            # pragma: no mutate — `i -= 1` の変異が無限ループ化し RAM を食い潰す(spec §2.5)
+            i += 1  # pragma: no mutate
     return paths
 
 
