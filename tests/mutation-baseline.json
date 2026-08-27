@@ -6,8 +6,8 @@
       "total": 154
     },
     "hooks/lib/fingerprint.py": {
-      "score": 94.6,
-      "killed": 139,
+      "score": 95.2,
+      "killed": 140,
       "total": 147
     },
     "hooks/lib/hook_io.py": {
@@ -21,8 +21,8 @@
       "total": 77
     },
     "hooks/lib/state.py": {
-      "score": 92.1,
-      "killed": 129,
+      "score": 92.9,
+      "killed": 130,
       "total": 140
     },
     "hooks/lib/status.py": {

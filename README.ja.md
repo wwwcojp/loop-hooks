@@ -305,6 +305,9 @@ uv run pytest -v
 
 このリポジトリはこのプラグイン自身をゲートしている。`uv run python scripts/verify.py quick` は CI の `test` ジョブと同じチェックを実行する(ホームパスリーク検査、ruff check/format、import-linter、pyright、pytest)。pyright は PATH の `node` を使う(無ければ初回に取得する)。
 
+`tests/test_properties.py` には hypothesis の property-based test がある(ゲートと CI では 25 例、
+`verify.py all` では 300 例)。
+
 `uv run python scripts/verify.py all` は mutation testing(`hooks/lib` に対する mutmut、約3分)を追加する。
 ファイル別スコアのラチェットは `tests/mutation-baseline.json` にあり、ゲートには含まれない。
 

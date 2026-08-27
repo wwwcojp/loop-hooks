@@ -327,6 +327,9 @@ runs the same checks as CI's `test` job (home-path leak check, ruff check/format
 import-linter, pyright, pytest). pyright needs `node` on PATH, or downloads one on
 first run.
 
+`tests/test_properties.py` holds hypothesis property tests (25 examples in the gate and CI, 300 in
+`verify.py all`).
+
 `uv run python scripts/verify.py all` adds mutation testing (mutmut over `hooks/lib`, about three
 minutes) with a per-file score ratchet in `tests/mutation-baseline.json`; it is not part of the gate.
 

@@ -6,6 +6,7 @@
 """
 
 import fnmatch
+import json
 import subprocess
 import sys
 import uuid
@@ -59,6 +60,7 @@ def test_P1_validateは任意のJSONで例外を出さずerrorかgateを返す(r
     assert isinstance(result, dict)
     if "_error" in result:
         assert isinstance(result["_error"], str) and result["_error"]
+        assert result["_error"].startswith(config.CONFIG_NAME)
         assert "gate" not in result
         return
     gate = result["gate"]
@@ -69,6 +71,13 @@ def test_P1_validateは任意のJSONで例外を出さずerrorかgateを返す(r
         assert isinstance(gate[key], list) and all(isinstance(v, str) for v in gate[key])
     assert isinstance(gate["on"], list) and gate["on"]
     assert all(v in config.EVENTS for v in gate["on"])
+    # gate で省略したキーは GATE_DEFAULTS がそのまま埋める(merge の向き・既定値そのものを検査する)
+    raw_gate = (
+        raw.get("gate") if isinstance(raw, dict) and isinstance(raw.get("gate"), dict) else {}
+    )
+    for key, default in config.GATE_DEFAULTS.items():
+        if key not in raw_gate:
+            assert gate[key] == default
 
 
 # ---- P2: is_watched — ignore が watch より優先し、watch に無いものは False ----
@@ -93,7 +102,8 @@ _patterns_no_wildcard = st.lists(
 @given(rel=_rel_paths, watch=_patterns)
 def test_P2a_ignoreに一致すればwatchに関係なくFalse(rel: str, watch: list[str]):
     cfg = {"watch": watch + [rel], "ignore": [rel]}
-    assert fingerprint.is_watched(rel, cfg) is False
+    result = fingerprint.is_watched(rel, cfg)
+    assert isinstance(result, bool) and result is False
 
 
 @settings(deadline=None)
@@ -125,6 +135,23 @@ def test_P4_tailは任意のバイト列で落ちずn件以下のdictを返す(d
     out = log.tail(root, n)
     assert isinstance(out, list) and len(out) <= n
     assert all(isinstance(r, dict) for r in out)
+    # 中身も検査する: 壊れていない行だけを、ファイルの末尾から新しい順に、n 件で打ち切って
+    # 返しているはず(型が dict であること以上の、実際の選び方・順序の契約を固定する)
+    try:
+        lines = p.read_text(encoding="utf-8").splitlines()
+    except (OSError, ValueError):
+        lines = []
+    expected: list[dict[str, Any]] = []
+    for line in reversed(lines):
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(rec, dict):
+            expected.append(rec)
+        if len(expected) >= n:
+            break
+    assert out == expected
 
 
 # ---- P5: append を k 回しても行数は上限内。超えた直後は KEEP_LINES 以上 ----
@@ -143,6 +170,10 @@ def test_P5_何回appendしても行数は上限内(k: int):
         assert lines >= log.KEEP_LINES
     else:
         assert lines == k
+    if k > 0:
+        # 切り詰めは新しい方を残す: 直前の append(i=k-1)は必ず生き残っているはず
+        latest = log.tail(root, 1)
+        assert latest and latest[0].get("i") == k - 1
 
 
 # ---- P6: state の round trip と、壊れたファイルは None ----
@@ -160,6 +191,8 @@ def test_P6a_書いた値がそのまま読め互いに干渉しない(verified:
     assert state.read_verified(root) == verified
     assert state.read_blocked(root) == blocked
     assert state.read_noticed(root) == noticed
+    # 置き場を決めるキーは固定長 16(sha256 の先頭 16 桁): 長さがずれると衝突しやすくなる
+    assert len(state.key(root)) == 16
 
 
 @settings(deadline=None)

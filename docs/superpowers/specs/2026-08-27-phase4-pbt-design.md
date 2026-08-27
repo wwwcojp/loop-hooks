@@ -92,6 +92,83 @@ settings.load_profile(
 - 全プロパティが `default` / `thorough` / `mutation` の各プロファイルで green。
 - CI green(3.10 / 3.14 / security)。`quick` の CI ミラーテストは無変更で通る。
 
+### 確認済み(2026-08-27、第 6 タスク)
+
+**所要時間**
+
+- `quick` 増分: 約 1.1 秒(`uv run pytest -q` の内部時間で比較。`tests/test_properties.py` を除いた
+  284 件が 10.82 秒、含めた 293 件が 11.89 秒)。`quick` 全体は 13.7 秒。
+- `properties`(thorough、300 例): 5.8 秒。
+- `mutation` 増分: 約 +13 秒(第 3 段階の 64 秒 → 全プロパティ有効時 77 秒)。いずれも ≤ 60 秒の
+  予算内。`MUTATION_MAX_EXAMPLES` は 5 のまま変更不要だった。
+
+**組ごとの killed 増分(§2.5 の証明)**
+
+「全プロパティ skip」を基準に、6 組それぞれだけを有効にして `scripts/verify.py mutation` を
+1 回ずつ回した(`pytestmark = pytest.mark.skip(reason="proof")` で全 skip → 組ごとに対象だけ
+skip 解除)。
+
+| 組 | 対象ファイル | 基準(全 skip) | 組単独 | 増分 |
+|---|---|---|---|---|
+| P1 | `config.py`(`_validate`) | 144/154 | 144/154 | 0 → 強化後も 0 |
+| P2a+b+c | `fingerprint.py`(`is_watched`) | 139/147 | 139/147 | 0 → 強化後も 0 |
+| P3 | `fingerprint.py`(`compute`) | 139/147 | 140/147 | **+1** |
+| P4 | `log.py`(`tail`) | 65/77 | 65/77 | 0 → 強化後も 0 |
+| P5 | `log.py`(`append`/`_trim`) | 65/77 | 65/77 | 0 → 強化後も 0 |
+| P6a+b | `state.py`(round trip) | 129/140 | 129/140 → 強化後 **130/140** | **+1**(強化後) |
+
+全プロパティ有効(強化込み)での最終 baseline: `config.py` 144/154(変化なし)、
+`fingerprint.py` 140/147(P3 の +1)、`hook_io.py` 13/15(対象プロパティ無し、変化なし)、
+`log.py` 65/77(変化なし)、`state.py` 130/140(P6 強化の +1)、`status.py` 387/389(対象
+プロパティ無し、変化なし)。
+
+**増分 0 だった組の扱い(§2.5「性質を書き直す」)**
+
+`mutants/*.py.meta` と `mutants/hooks/lib/*.py` の生存変異を実際に読み、以下を確認した:
+
+- P1・P2・P4・P5 が増分 0 だった理由はプロパティの弱さではなく、対象関数の生存変異が
+  **どのテストでも原理的に殺せない等価変異**(`typing.cast(T, x)` → `cast(None, x)`。`cast` は
+  実行時に恒等関数なので型引数を変えても挙動は変わらない)、または**この実行環境で等価な変異**
+  (コーデック名の大小文字違い `"utf-8"`→`"UTF-8"`、`json.dumps` の `ensure_ascii=False`→`None`
+  は両方 falsy で同じ分岐を通る、`encoding=<リテラル>`→`encoding=None` はこの環境のロケールが
+  `LANG=C.UTF-8` で既定エンコーディングが utf-8 と一致するため区別不能)であり、加えて P1 の
+  一部生存変異(`load`/`plugin_version`)はそもそも `_validate` の対象外(spec §4 のスコープ外)
+  だったため。それでも brief の指示どおり各プロパティを最小限強化した:
+  - P1: `_error` が `CONFIG_NAME` で始まることの検査、gate で省略したキーが `GATE_DEFAULTS` の
+    値そのもので埋まることの検査を追加。
+  - P2a: 戻り値が厳密に `bool` 型であることの検査を追加。
+  - P4: ガベージ入力ケースに加えて、実際に選ばれた行の**中身と順序**(壊れていない行だけを
+    新しい順に n 件で打ち切る)をオラクル再実装と突き合わせる検査を追加。
+  - P5: 切詰め後も直前の `append`(`i = k-1`)が生き残っていることの検査を追加(切詰めが「新しい方を
+    残す」ことを直接確認)。
+  - いずれも再実行で増分は 0 のままだった(等価変異のみが残っているという上の説明と整合)。
+- P6a+b だけは**本物の穴**が見つかった: `state.key()` の戻り値の長さ(sha256 の先頭 16 桁)を
+  検査していなかったため `x_key__mutmut_6`(`hexdigest()[:16]` → `[:17]`)が生存していた。
+  `assert len(state.key(root)) == 16` を追加したところ、この変異は殺せるようになった
+  (`state.py` 129/140 → 130/140)。P6a+P6b で `x_key__mutmut_5`(`encode("utf-8")` →
+  `encode("UTF-8")`、コーデック名の大小文字違いで等価)は引き続き生存する。
+
+**発見した欠陥**
+
+1. `tests/conftest.py` の profile 選択にバグがあった。`settings.load_profile("mutation" if
+   os.environ.get("MUTANT_UNDER_TEST") else ...)` を import 時に評価していたが、mutmut は
+   1 つの永続プロセスを使い回し、この conftest は最初の import 時にしか評価されない。その
+   最初の import が mutmut 自身の内部フェーズ(stats 収集など、`MUTANT_UNDER_TEST="stats"` の
+   ように実際の変異キーではない値が立っている)の最中に起きると、"mutation"(5 例)が永続
+   プロセスの既定プロファイルとして固定されてしまい、以降の stats/clean 実行や、実行時に
+   その場で作った hypothesis 関数まで、既定 25 例のはずが 5 例になっていた。この第 6 タスクの
+   Step 1 の初回実行(`uv run python scripts/verify.py mutation`)がこれで即座に落ちた
+   (`tests/test_packaging.py::test_MUTANT_UNDER_TESTがあればhypothesisの例数が実行時に5へ絞られる`
+   が `assert 5 == 25` で失敗、mutmut の stats 収集自体が失敗コードで終了)。修正は import 時の
+   選択から `MUTANT_UNDER_TEST` の分岐を外し、`HYPOTHESIS_PROFILE`(既定 `default`)だけで
+   決めるようにした。実行時の絞り込みは既存の `pytest_runtest_setup` フックが `MUTANT_UNDER_TEST`
+   を都度読んで行うので、影響を受けない。
+2. 上記「増分 0 だった組」の調査を通じて、`config.py` / `fingerprint.py` / `log.py` /
+   `state.py` の非 100% mutation score の大半が、実装の欠陥ではなく mutmut の変異演算子が
+   生成する等価変異(`typing.cast` の型引数、コーデック名の大小文字、`ensure_ascii` の
+   `False`/`None`、`encoding` の既定値と明示値の一致)で説明できることを確認した。今回の
+   baseline(§ 上表)はこれらを除いた実質的な上限に近い。
+
 ## 4. スコープ外
 
 - ゲート本体(`gate.py` / `session_start.py`)のプロパティ(subprocess のコストが合わない)。

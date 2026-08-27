@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.6.0] - 2026-08-27
+
+### Added
+- **Property-based tests** (`tests/test_properties.py`, hypothesis): configuration validation
+  never raises on arbitrary JSON; `is_watched` honours `ignore` over `watch`; the fingerprint is
+  deterministic, blind to unwatched files and sensitive to watched ones; the decision log tolerates
+  arbitrary bytes and keeps its size bounded; state round-trips and degrades to `None` on corruption.
+  25 examples in the gate and CI, 300 in `verify.py all` (`properties` stage), 5 while mutmut runs.
+- `scripts/verify.py properties`; `all` is now quick → properties → mutation.
+
+### Upgrading
+- Nothing to do. No entry-point files or hook definitions changed; no restart needed.
+
 ## [0.5.0] - 2026-08-27
 
 ### Added
