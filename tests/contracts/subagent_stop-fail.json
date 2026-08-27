@@ -1,0 +1,13 @@
+{
+  "reference": "https://code.claude.com/docs/en/hooks",
+  "checked": "2026-08-27",
+  "input": {"hook_event_name": "SubagentStop", "cwd": "<CWD>", "stop_hook_active": false},
+  "output": {
+    "hookSpecificOutput": {
+      "hookEventName": "SubagentStop",
+      "additionalContext": "[loop-hooks] verification gate failed. Fix it before finishing:\n$ <COMMAND>\n<OUTPUT>"
+    }
+  },
+  "exit_code": 0,
+  "stderr": ""
+}

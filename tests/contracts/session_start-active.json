@@ -1,0 +1,14 @@
+{
+  "reference": "https://code.claude.com/docs/en/hooks",
+  "checked": "2026-08-27",
+  "input": {"hook_event_name": "SessionStart", "cwd": "<CWD>", "source": "startup"},
+  "output": {
+    "hookSpecificOutput": {
+      "hookEventName": "SessionStart",
+      "additionalContext": "loop-hooks is active in this repository. When a turn ends and a watched file has changed since the gate last passed, `<COMMAND>` runs from the repository root; if it fails, its output is returned and the turn stays open until it passes. Events: stop, subagent_stop, teammate_idle. Watched: *.ts. Ignored: *.md. Configuration is read from the committed .loop-hooks.json."
+    },
+    "systemMessage": "[loop-hooks <VERSION>] gate active: <COMMAND>"
+  },
+  "exit_code": 0,
+  "stderr": ""
+}

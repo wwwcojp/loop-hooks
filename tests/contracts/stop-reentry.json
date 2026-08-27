@@ -1,0 +1,10 @@
+{
+  "reference": "https://code.claude.com/docs/en/hooks",
+  "checked": "2026-08-27",
+  "input": {"hook_event_name": "Stop", "cwd": "<CWD>", "stop_hook_active": true},
+  "output": {
+    "systemMessage": "[loop-hooks] gate failed again; letting this turn end unverified:\n$ <COMMAND>\n<OUTPUT>"
+  },
+  "exit_code": 0,
+  "stderr": ""
+}

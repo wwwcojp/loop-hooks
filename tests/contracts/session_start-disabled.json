@@ -1,0 +1,10 @@
+{
+  "reference": "https://code.claude.com/docs/en/hooks",
+  "checked": "2026-08-27",
+  "input": {"hook_event_name": "SessionStart", "cwd": "<CWD>", "source": "startup"},
+  "output": {
+    "systemMessage": "[loop-hooks] gate disabled: .loop-hooks.json: gate.command must not be empty"
+  },
+  "exit_code": 0,
+  "stderr": ""
+}

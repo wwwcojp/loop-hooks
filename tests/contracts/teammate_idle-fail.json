@@ -1,0 +1,8 @@
+{
+  "reference": "https://code.claude.com/docs/en/hooks",
+  "checked": "2026-08-27",
+  "input": {"hook_event_name": "TeammateIdle", "cwd": "<CWD>"},
+  "output": null,
+  "exit_code": 2,
+  "stderr": "[loop-hooks] verification gate failed. Fix it before finishing:\n$ <COMMAND>\n<OUTPUT>"
+}
