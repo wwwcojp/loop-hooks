@@ -11,3 +11,6 @@ __pycache__/
 
 # mutmut の作業領域(scripts/verify.py mutation が毎回作り直す)
 mutants/
+
+# hypothesis の例データベース
+.hypothesis/

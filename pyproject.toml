@@ -6,6 +6,7 @@ requires-python = ">=3.10"
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.165.10",
     "import-linter>=2.13",
     "mutmut>=3.7.0",
     "pyright>=1.1.411",
@@ -18,12 +19,12 @@ dev = [
 include = ["hooks", "scripts"]
 strict = ["hooks", "scripts"]
 pythonVersion = "3.10"
-exclude = ["mutants"]
+exclude = ["mutants", ".hypothesis"]
 
 [tool.ruff]
 line-length = 100
 # ruff format は Markdown の fenced code も整形対象にする。docs は対象外。mutants は mutmut の作業領域
-extend-exclude = ["docs", "mutants"]
+extend-exclude = ["docs", "mutants", ".hypothesis"]
 
 [tool.ruff.lint]
 # E402 を有効にすることで、hooks/ を import path に足すための sys.path.insert より

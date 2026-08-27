@@ -144,3 +144,22 @@ def test_mutmutの設定とmutantsの除外():
     assert "mutants/" in (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
     gate = json.loads((ROOT / ".loop-hooks.json").read_text(encoding="utf-8"))["gate"]
     assert "mutants/*" in gate["ignore"]
+
+
+def test_hypothesisの除外設定():
+    """spec §2.4: .hypothesis/(例のデータベース)は git・ruff・pyright・ゲートの対象外。"""
+    cfg = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert ".hypothesis" in cfg["tool"]["ruff"]["extend-exclude"]
+    assert ".hypothesis" in cfg["tool"]["pyright"]["exclude"]
+    assert ".hypothesis/" in (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    gate = json.loads((ROOT / ".loop-hooks.json").read_text(encoding="utf-8"))["gate"]
+    assert ".hypothesis/*" in gate["ignore"]
+    assert any(d.startswith("hypothesis") for d in cfg["dependency-groups"]["dev"])
+
+
+def test_hypothesisのプロファイルが登録されている():
+    from hypothesis import settings
+
+    for name, n in (("default", 25), ("thorough", 300), ("mutation", 5)):
+        prof = settings.get_profile(name)
+        assert prof.max_examples == n and prof.deadline is None, name
