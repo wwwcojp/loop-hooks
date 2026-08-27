@@ -7,6 +7,7 @@ requires-python = ">=3.10"
 [dependency-groups]
 dev = [
     "import-linter>=2.13",
+    "mutmut>=3.7.0",
     "pyright>=1.1.411",
     "pytest>=8.0",
     "ruff>=0.8",
@@ -17,11 +18,12 @@ dev = [
 include = ["hooks", "scripts"]
 strict = ["hooks", "scripts"]
 pythonVersion = "3.10"
+exclude = ["mutants"]
 
 [tool.ruff]
 line-length = 100
-# ruff format は Markdown の fenced code も整形対象にする。docs は対象外
-extend-exclude = ["docs"]
+# ruff format は Markdown の fenced code も整形対象にする。docs は対象外。mutants は mutmut の作業領域
+extend-exclude = ["docs", "mutants"]
 
 [tool.ruff.lint]
 # E402 を有効にすることで、hooks/ を import path に足すための sys.path.insert より
@@ -61,3 +63,17 @@ name = "lib の層(上が下に依存する)"
 type = "layers"
 layers = ["status", "log", "config", "fingerprint", "state", "hook_io"]
 containers = ["hooks.lib"]
+
+[tool.mutmut]
+# 対象は hooks/lib 6 本。入口(gate.py / session_start.py)は subprocess 経由のテストが主体で
+# mutmut のカバレッジに見えにくいため対象外(spec §2.2)。also_copy はテストが読むファイル群。
+source_paths = ["hooks"]
+only_mutate = [
+  "hooks/lib/config.py", "hooks/lib/fingerprint.py", "hooks/lib/hook_io.py",
+  "hooks/lib/log.py", "hooks/lib/state.py", "hooks/lib/status.py",
+]
+also_copy = [
+  "scripts", "skills", ".claude-plugin", ".github", "docs",
+  "README.md", "README.ja.md", "LICENSE", "CLAUDE.md", "CHANGELOG.md",
+  ".loop-hooks.json", "uv.lock",
+]

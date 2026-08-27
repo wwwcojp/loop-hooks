@@ -8,3 +8,6 @@ __pycache__/
 
 # superpowers の作業領域(台帳・ブリーフ・レビュー資料)
 .superpowers/
+
+# mutmut の作業領域(scripts/verify.py mutation が毎回作り直す)
+mutants/
