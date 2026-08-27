@@ -17,10 +17,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from hooks import gate  # noqa: E402
-from hooks.lib import fingerprint, log, state, status  # noqa: E402
+from hooks.lib import config, fingerprint, log, state, status  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 ENTRIES = ("gate.py", "session_start.py")
@@ -200,3 +202,90 @@ def test_書込でリポジトリ内にファイルが増えない(tmp_path):
     assert _files(root) == before
     assert state.read_verified(str(root)) == "fp"
     link.unlink()
+
+
+# ---- (d) hooks/lib の公開関数は例外を外に出さない ----
+# 壊れた入力(任意 JSON / 任意バイト列)は tests/test_properties.py の P1 / P4 / P6b が担う。
+
+INFO_KEYS = {
+    "cwd", "root", "config_source", "config_error", "notice", "command", "on", "watch",
+    "ignore", "timeout_sec", "fingerprint", "verified", "will_run", "blocked", "recent",
+    "state_dir",
+}  # fmt: skip
+
+
+@pytest.fixture
+def unwritable_state(tmp_path, monkeypatch):
+    """CLAUDE_PLUGIN_DATA を書込不能にする。root など制限が効かない環境では skip。"""
+    data = tmp_path / "ro"
+    data.mkdir()
+    data.chmod(0o500)
+    if os.access(data, os.W_OK):
+        data.chmod(0o700)
+        pytest.skip("書込制限が効かない環境(root など)")
+    monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(data))
+    yield data
+    data.chmod(0o700)
+
+
+def test_書込不能でもstateとlogは例外を出さない(tmp_path, unwritable_state):
+    (tmp_path / "r").mkdir()
+    root = _repo(tmp_path / "r")
+    state.write_verified(root, "fp")
+    state.write_blocked(root, "fp")
+    state.write_noticed(root, "n")
+    log.append(root, {"event": "Stop", "decision": "ran"})
+    assert state.read_verified(root) is None
+    assert state.read_blocked(root) is None
+    assert state.read_noticed(root) is None
+    assert log.tail(root, 5) == []
+
+
+def test_状態ファイルとログがディレクトリでも例外を出さない(tmp_path):
+    root = str(tmp_path)
+    state._path(root).mkdir(parents=True)
+    log._path(root).mkdir(parents=True)
+    state.write_verified(root, "fp")
+    log.append(root, {"event": "Stop"})
+    assert state.read_verified(root) is None
+    assert log.tail(root, 5) == []
+
+
+@pytest.fixture
+def no_git(tmp_path, monkeypatch):
+    empty = tmp_path / "empty-bin"
+    empty.mkdir()
+    monkeypatch.setenv("PATH", str(empty))
+
+
+def test_gitが無くてもfingerprintとconfigは例外を出さずNone側に倒す(tmp_path, no_git):
+    root = str(tmp_path)
+    assert fingerprint.repo_root(root) is None
+    assert fingerprint.compute(root, GATE) is None
+    assert fingerprint.head_file(root, ".loop-hooks.json") is None
+    assert config.load(root) is None  # 設定ファイルも無い
+    (tmp_path / ".loop-hooks.json").write_text(json.dumps({"gate": GATE}), encoding="utf-8")
+    loaded = config.load(root)
+    assert loaded is not None and "_error" not in loaded  # 作業ツリー版で読める
+
+
+def test_存在しないディレクトリでも例外を出さない(tmp_path):
+    missing = str(tmp_path / "missing")
+    assert fingerprint.repo_root(missing) is None
+    assert config.load(missing) is None
+    assert set(status.collect(missing)) == INFO_KEYS
+
+
+def test_plugin_jsonが壊れていてもplugin_versionはNone(tmp_path, monkeypatch):
+    broken = tmp_path / "plugin.json"
+    for body in ("{", "[]", '{"version": 3}', '{"version": ""}'):
+        broken.write_text(body, encoding="utf-8")
+        monkeypatch.setattr(config, "PLUGIN_JSON", broken)
+        assert config.plugin_version() is None, body
+    monkeypatch.setattr(config, "PLUGIN_JSON", tmp_path / "none.json")
+    assert config.plugin_version() is None
+
+
+def test_status_collectはどの状況でも全キーを返す(tmp_path, unwritable_state, no_git):
+    for cwd in (str(tmp_path), str(tmp_path / "missing"), ""):
+        assert set(status.collect(cwd)) == INFO_KEYS, cwd
