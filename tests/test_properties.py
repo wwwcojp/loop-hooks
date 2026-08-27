@@ -15,7 +15,7 @@ from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from hooks.lib import config, fingerprint  # noqa: E402
+from hooks.lib import config, fingerprint, log, state  # noqa: E402
 
 
 def _root() -> str:
@@ -108,3 +108,64 @@ def test_P2c_watchにrel自身がありignoreに一致しなければTrue(
 ):
     assume(not any(fnmatch.fnmatch(rel, p) for p in ignore))
     assert fingerprint.is_watched(rel, {"watch": watch + [rel], "ignore": ignore}) is True
+
+
+# ---- P4: log.tail は任意のバイト列で例外を出さず、list[dict] を n 件以下で返す ----
+
+
+@settings(deadline=None)
+@given(data=st.binary(max_size=2000), n=st.integers(min_value=1, max_value=20))
+def test_P4_tailは任意のバイト列で落ちずn件以下のdictを返す(data: bytes, n: int):
+    root = _root()
+    p = log._path(root)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_bytes(data)
+    out = log.tail(root, n)
+    assert isinstance(out, list) and len(out) <= n
+    assert all(isinstance(r, dict) for r in out)
+
+
+# ---- P5: append を k 回しても行数は上限内。超えた直後は KEEP_LINES 以上 ----
+
+
+@settings(deadline=None, max_examples=15)
+@given(k=st.integers(min_value=0, max_value=log.MAX_LINES + 300))
+def test_P5_何回appendしても行数は上限内(k: int):
+    root = _root()
+    for i in range(k):
+        log.append(root, {"event": "Stop", "decision": "skipped", "i": i})
+    p = log._path(root)
+    lines = len(p.read_text(encoding="utf-8").splitlines()) if p.exists() else 0
+    assert lines <= log.MAX_LINES
+    if k > log.MAX_LINES:
+        assert lines >= log.KEEP_LINES
+    else:
+        assert lines == k
+
+
+# ---- P6: state の round trip と、壊れたファイルは None ----
+
+_fp_text = st.text(alphabet=st.characters(blacklist_characters="\x00"), max_size=64)
+
+
+@settings(deadline=None)
+@given(verified=_fp_text, blocked=_fp_text, noticed=_fp_text)
+def test_P6a_書いた値がそのまま読め互いに干渉しない(verified: str, blocked: str, noticed: str):
+    root = _root()
+    state.write_verified(root, verified)
+    state.write_blocked(root, blocked)
+    state.write_noticed(root, noticed)
+    assert state.read_verified(root) == verified
+    assert state.read_blocked(root) == blocked
+    assert state.read_noticed(root) == noticed
+
+
+@settings(deadline=None)
+@given(data=st.binary(max_size=500))
+def test_P6b_壊れた状態ファイルは例外を出さずNone(data: bytes):
+    root = _root()
+    p = state._path(root)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_bytes(data)
+    assert state.read_verified(root) is None or isinstance(state.read_verified(root), str)
+    assert state.read_blocked(root) is None or isinstance(state.read_blocked(root), str)
