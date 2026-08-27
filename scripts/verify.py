@@ -6,7 +6,7 @@ loop-hooks の Stop ゲートから `uv run python scripts/verify.py quick` と�
 
 `mutation` は mutmut を毎回フル実行し、ファイル別 score を `tests/mutation-baseline.json`
 とラチェット比較する。`all` は quick 成功後に mutation。どちらも Stop ゲート・CI には
-載せない(約 3 分)。
+載せない(約 3 分)。1 変異分の揺れ(mutmut の非決定性)は許容する。
 
 evidence は書かない。「走ったか・なぜ走らなかったか」はプラグイン側の判定ログ
 (`/loop-hooks:status`)が持つ。ここは終了コードと出力だけを返す。
@@ -134,6 +134,7 @@ def check_mutation_baseline(
 
     - 下回ったファイル / baseline にあって結果に無いファイル → fail(全件列挙)
     - 新規ファイルは登録、上回った分だけ更新。変化が無ければファイルに触らない
+    - 1 変異分の揺れ(mutmut の非決定性)は許容する
     """
     path = repo_root / BASELINE_REL
     baseline: dict[str, float] = {}
@@ -146,8 +147,11 @@ def check_mutation_baseline(
                 f"{f}: baseline {b} にあるが今回の結果に無い(only_mutate から外れている?"
                 " 対象の縮小は baseline を手で外す必要がある)"
             )
-        elif scores[f]["score"] < b:
-            problems.append(f"{f}: score {scores[f]['score']} < baseline {b}")
+        else:
+            score = scores[f]["score"]
+            tol = 100.0 / scores[f]["total"]
+            if score < b - tol:
+                problems.append(f"{f}: score {score} < baseline {b}")
     if problems:
         return False, problems
     new = {f: max(s["score"], baseline.get(f, 0.0)) for f, s in scores.items()}

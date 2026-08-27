@@ -225,12 +225,36 @@ def test_baselineを下回ればfailで一覧(tmp_path):
         json.dumps({"files": {"hooks/lib/a.py": 90.0}}), encoding="utf-8"
     )
     ok, problems = verify.check_mutation_baseline(
-        tmp_path, {"hooks/lib/a.py": {"score": 80.0, "killed": 8, "total": 10}}
+        tmp_path, {"hooks/lib/a.py": {"score": 70.0, "killed": 7, "total": 10}}
     )
-    assert not ok and problems == ["hooks/lib/a.py: score 80.0 < baseline 90.0"]
+    assert not ok and problems == ["hooks/lib/a.py: score 70.0 < baseline 90.0"]
     assert json.loads((tmp_path / verify.BASELINE_REL).read_text())["files"] == {
         "hooks/lib/a.py": 90.0
     }
+
+
+def test_baselineを1変異分だけ下回るのは許容する(tmp_path):
+    """mutmut の非決定性: タイムアウト(-24)が killed 扱いになり score が 1 変異分揺れる。"""
+    (tmp_path / "tests").mkdir()
+    (tmp_path / verify.BASELINE_REL).write_text(
+        json.dumps({"files": {"hooks/lib/a.py": 99.7}}), encoding="utf-8"
+    )
+    scores = {"hooks/lib/a.py": {"score": 99.5, "killed": 387, "total": 389}}
+    ok, problems = verify.check_mutation_baseline(tmp_path, scores)
+    assert ok and problems == []
+    assert json.loads((tmp_path / verify.BASELINE_REL).read_text())["files"] == {
+        "hooks/lib/a.py": 99.7
+    }
+
+
+def test_baselineを2変異分下回ればfail(tmp_path):
+    (tmp_path / "tests").mkdir()
+    (tmp_path / verify.BASELINE_REL).write_text(
+        json.dumps({"files": {"hooks/lib/a.py": 99.7}}), encoding="utf-8"
+    )
+    scores = {"hooks/lib/a.py": {"score": 99.2, "killed": 386, "total": 389}}
+    ok, problems = verify.check_mutation_baseline(tmp_path, scores)
+    assert not ok and problems == ["hooks/lib/a.py: score 99.2 < baseline 99.7"]
 
 
 def test_baselineを上回れば書き換える(tmp_path):
