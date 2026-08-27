@@ -38,21 +38,21 @@ testpaths = ["tests"]
 pythonpath = ["scripts"]
 
 [tool.importlinter]
-# 対象は lib パッケージのみ。入口(gate.py / session_start.py)はパッケージでないため
-# root_packages にできない(親 spec §3.2)。実行は hooks/ を cwd に PYTHONPATH=. で。
-root_packages = ["lib"]
+# 対象は hooks 名前空間パッケージ(__init__.py は作らない。PEP 420)。実行はリポジトリルートで
+# PYTHONPATH=.(第 3 段階で lib 起点から hooks 起点に変更。mutmut の変異キーと合わせるため)。
+root_packages = ["hooks"]
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
 name = "lib は入口(gate / session_start)を import しない"
 type = "forbidden"
-source_modules = ["lib"]
-forbidden_modules = ["gate", "session_start"]
+source_modules = ["hooks.lib"]
+forbidden_modules = ["hooks.gate", "hooks.session_start"]
 
 [[tool.importlinter.contracts]]
 name = "subprocess を使うのは fingerprint だけ"
 type = "forbidden"
-source_modules = ["lib.config", "lib.hook_io", "lib.log", "lib.state", "lib.status"]
+source_modules = ["hooks.lib.config", "hooks.lib.hook_io", "hooks.lib.log", "hooks.lib.state", "hooks.lib.status"]
 forbidden_modules = ["subprocess"]
 allow_indirect_imports = true
 
@@ -60,4 +60,4 @@ allow_indirect_imports = true
 name = "lib の層(上が下に依存する)"
 type = "layers"
 layers = ["status", "log", "config", "fingerprint", "state", "hook_io"]
-containers = ["lib"]
+containers = ["hooks.lib"]

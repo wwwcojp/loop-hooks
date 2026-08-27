@@ -63,8 +63,8 @@ def test_ゲートフックのtimeoutはgate_timeout_secの上限より長い():
     """Claude Code 側が先にフックを殺すと、プロセスグループの後始末が走らない。"""
     import sys
 
-    sys.path.insert(0, str(ROOT / "hooks"))
-    from lib import config
+    sys.path.insert(0, str(ROOT))
+    from hooks.lib import config
 
     for hook in _hook_entries():
         if "gate.py" in hook["command"]:
@@ -95,8 +95,8 @@ def test_自リポジトリのゲート設定が有効で検証ランナーを�
     """spec §2.2: loop-hooks 自身にゲートを掛ける(ドッグフーディング)。"""
     import sys
 
-    sys.path.insert(0, str(ROOT / "hooks"))
-    from lib import config
+    sys.path.insert(0, str(ROOT))
+    from hooks.lib import config
 
     cfg = config.load(str(ROOT))
     assert cfg is not None and "_error" not in cfg, cfg

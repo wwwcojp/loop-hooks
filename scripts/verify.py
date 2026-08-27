@@ -51,8 +51,7 @@ STAGES: dict[str, list[Check]] = {
         Check("format", ["uv", "run", "ruff", "format", "--check", "hooks", "tests", "scripts"]),
         Check(
             "imports",
-            ["uv", "run", "lint-imports", "--config", "../pyproject.toml"],
-            cwd="hooks",
+            ["uv", "run", "lint-imports", "--config", "pyproject.toml"],
             env=(("PYTHONPATH", "."),),
         ),
         Check("types", ["uv", "run", "pyright"]),

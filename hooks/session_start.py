@@ -16,8 +16,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import config, fingerprint, hook_io, log  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from hooks.lib import config, fingerprint, hook_io, log  # noqa: E402
 
 
 def announcement(gate_cfg: dict[str, Any]) -> str:

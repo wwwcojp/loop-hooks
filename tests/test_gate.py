@@ -6,9 +6,9 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
-import gate  # noqa: E402
-from lib import fingerprint, log, state  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from hooks import gate  # noqa: E402
+from hooks.lib import fingerprint, log, state  # noqa: E402
 
 WATCH = ["*.ts"]
 IGNORE = [".loop/*", "*.md"]
@@ -629,7 +629,7 @@ def test_fingerprintが取れないままpassしてもverifiedを書かない(tm
 
 def test_statusは内部で例外が出ても落ちずに0で終わる(monkeypatch, capsys):
     """0.3.1: 表示ツールであって判定ツールではない。例外でも exit 0 と説明文。"""
-    from lib import status
+    from hooks.lib import status
 
     def boom(target):
         raise RuntimeError("injected")

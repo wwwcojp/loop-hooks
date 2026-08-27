@@ -4,8 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
-from lib import fingerprint  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from hooks.lib import fingerprint  # noqa: E402
 
 GATE = {"watch": ["*.ts", "package.json"], "ignore": [".loop/*", "*.md", "docs/*"]}
 

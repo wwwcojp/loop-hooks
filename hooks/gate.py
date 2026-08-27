@@ -20,8 +20,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib import config, fingerprint, hook_io, log, state  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from hooks.lib import config, fingerprint, hook_io, log, state  # noqa: E402
 
 # Claude Code はフック出力を 10,000 字で切る。その内側で、失敗の原因(トレースバック等は
 # 末尾より前に出る)と結果の要約(末尾)の両方が残るように、先頭と末尾を残して中を落とす。
@@ -172,7 +172,7 @@ def _with_notice(out: dict[str, Any], root: str, notice: str | None) -> dict[str
 
 def status_main(target: str) -> int:
     """`--status` の本体。表示ツールであって判定ツールではない: stdin を読まず、常に 0。"""
-    from lib import status  # 表示専用。ゲート経路では読み込まない(0.3.0 spec §2)
+    from hooks.lib import status  # 表示専用。ゲート経路では読み込まない(0.3.0 spec §2)
 
     try:
         print(status.render(status.collect(target)))

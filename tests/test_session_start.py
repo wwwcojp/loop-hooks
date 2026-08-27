@@ -5,9 +5,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "hooks"))
-import session_start  # noqa: E402
-from lib import log  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from hooks import session_start  # noqa: E402
+from hooks.lib import log  # noqa: E402
 
 GATE = {"command": "touch SHOULD_NOT_RUN", "watch": ["*.py"], "ignore": ["*.md"]}
 
@@ -44,7 +44,7 @@ def test_有効なら告知と1行のsystemMessage(tmp_path):
     assert out["hookSpecificOutput"]["hookEventName"] == "SessionStart"
     assert "loop-hooks is active" in context(out)
     assert GATE["command"] in context(out)
-    from lib import config
+    from hooks.lib import config
 
     assert out["systemMessage"] == (
         f"[loop-hooks {config.plugin_version()}] gate active: {GATE['command']}"
@@ -111,7 +111,7 @@ def test_設定エラーはdisabledと記録される(tmp_path):
 
 
 def test_SessionStartでは通知の重複排除を消費しない(tmp_path):
-    from lib import state
+    from hooks.lib import state
 
     session_start.handle(repo(tmp_path, {"gate": GATE}, commit=False))
     assert state.read_noticed(str(tmp_path)) is None
@@ -134,7 +134,7 @@ def test_スクリプトは常に0で終わる(tmp_path):
 
 def test_告知にプラグインのバージョンを出す(tmp_path, monkeypatch):
     """0.3.2: 設定は新しいがコードは古い、という状態を告知から判別できるようにする。"""
-    from lib import config
+    from hooks.lib import config
 
     monkeypatch.setattr(config, "plugin_version", lambda: "9.9.9")
     out = session_start.handle(repo(tmp_path, {"gate": GATE}))

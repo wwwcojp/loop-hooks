@@ -185,9 +185,7 @@ def test_quickにimport契約チェックがある():
     names = [c.name for c in verify.STAGES["quick"]]
     assert names.index("imports") == names.index("format") + 1
     c = next(c for c in verify.STAGES["quick"] if c.name == "imports")
-    assert verify.shell_line(c) == (
-        "cd hooks && PYTHONPATH=. uv run lint-imports --config ../pyproject.toml"
-    )
+    assert verify.shell_line(c) == "PYTHONPATH=. uv run lint-imports --config pyproject.toml"
 
 
 def test_quickに型検査がある():
