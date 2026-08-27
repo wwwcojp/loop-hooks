@@ -198,10 +198,10 @@ def test_同じリポジトリの別表現は同じキーに解決される(tmp_
     assert len(keys) == 1, dict(zip(variants, map(state.key, variants)))
 
 
-def test_書込でリポジトリ内にファイルが増えない(tmp_path):
+def test_書込でリポジトリ内にファイルが増えない(tmp_path, tmp_path_factory):
     root = Path(_repo(tmp_path))
     (root / "sub").mkdir()
-    link = tmp_path.parent / f"{tmp_path.name}-link"
+    link = tmp_path_factory.mktemp("link-holder") / "link"
     link.symlink_to(root, target_is_directory=True)
     before = _files(root)
     for v in (str(root), str(root) + "/", str(root / "sub" / ".."), str(link)):
@@ -211,7 +211,6 @@ def test_書込でリポジトリ内にファイルが増えない(tmp_path):
         log.append(v, {"event": "Stop", "decision": "skipped"})
     assert _files(root) == before
     assert state.read_verified(str(root)) == "fp"
-    link.unlink()
 
 
 # ---- (d) hooks/lib の公開関数は例外を外に出さない ----
