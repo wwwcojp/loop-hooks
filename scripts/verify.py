@@ -6,7 +6,7 @@ loop-hooks の Stop ゲートから `uv run python scripts/verify.py quick` と�
 
 `mutation` は mutmut を毎回フル実行し、ファイル別 score を `tests/mutation-baseline.json`
 とラチェット比較する。`all` は quick 成功後に mutation。どちらも Stop ゲート・CI には
-載せない(約 3 分)。killed 件数で比較し、1 変異分の揺れは許容する。total が変われば再基準化。
+載せない(約 1〜3 分)。killed 件数で比較し、1 変異分の揺れは許容する。total が変われば再基準化。
 
 evidence は書かない。「走ったか・なぜ走らなかったか」はプラグイン側の判定ログ
 (`/loop-hooks:status`)が持つ。ここは終了コードと出力だけを返す。

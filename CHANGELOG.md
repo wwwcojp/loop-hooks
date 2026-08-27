@@ -4,21 +4,24 @@
 
 ### Added
 - **Mutation testing with a ratchet for the repository itself.** `uv run python
-  scripts/verify.py mutation` runs mutmut over `hooks/lib` (928 mutants, about 170 seconds),
+  scripts/verify.py mutation` runs mutmut over `hooks/lib` (about 920 mutants, about 65 seconds),
   scores each file, and fails when a file drops below `tests/mutation-baseline.json`;
   the runner raises the baseline itself when a score improves. `all` = `quick` + `mutation`.
-  Neither is part of the end-of-turn gate or CI. Timing: about 3 minutes in isolation, up to
-  ~7 under load. The ratchet tolerates a one-mutant dip (mutmut is not fully deterministic).
+  Neither is part of the end-of-turn gate or CI. Timing: about a minute in isolation, longer
+  under load. The ratchet compares killed-mutant counts and tolerates a one-mutant dip;
+  timeouts are not counted as kills; if a file's mutant total changes it is re-baselined
+  instead of failing.
 - Tests added by the first triage: `hook_io` is now called directly (it was only exercised
   through subprocesses), `fingerprint` pins the git timeout, `log` pins the UTC timestamp
   format and trim boundaries, `status.render` has golden output.
-- One mutant in `fingerprint._changed_paths` is excluded with `# pragma: no mutate` because
-  it loops forever and exhausts memory.
+- `fingerprint._changed_paths` was rewritten as an iterator so no mutant can loop forever
+  (mutmut previously ran into an 11 GB runaway).
 
 ### Changed
 - **Imports are rooted at the plugin directory** (`from hooks.lib import …`) so that
   mutmut's mutant keys match runtime module names. The hook entry files did not move and
-  `hooks.json` is unchanged — **no restart is needed**.
+  `hooks.json` is unchanged. Existing sessions keep working; restart Claude Code to pick up
+  0.5.0 as usual.
 
 ### Upgrading
 - Nothing to do.

@@ -1,10 +1,34 @@
 {
   "files": {
-    "hooks/lib/config.py": 93.5,
-    "hooks/lib/fingerprint.py": 95.4,
-    "hooks/lib/hook_io.py": 86.7,
-    "hooks/lib/log.py": 84.4,
-    "hooks/lib/state.py": 92.1,
-    "hooks/lib/status.py": 99.5
+    "hooks/lib/config.py": {
+      "score": 93.5,
+      "killed": 144,
+      "total": 154
+    },
+    "hooks/lib/fingerprint.py": {
+      "score": 94.6,
+      "killed": 139,
+      "total": 147
+    },
+    "hooks/lib/hook_io.py": {
+      "score": 86.7,
+      "killed": 13,
+      "total": 15
+    },
+    "hooks/lib/log.py": {
+      "score": 84.4,
+      "killed": 65,
+      "total": 77
+    },
+    "hooks/lib/state.py": {
+      "score": 92.1,
+      "killed": 129,
+      "total": 140
+    },
+    "hooks/lib/status.py": {
+      "score": 99.5,
+      "killed": 387,
+      "total": 389
+    }
   }
 }
