@@ -1,5 +1,6 @@
 """scripts/verify.py: quick ステージは CI と同じコマンド・同じ順序。失敗で非ゼロ。"""
 
+import json
 import re
 from pathlib import Path
 
@@ -193,3 +194,105 @@ def test_quickに型検査がある():
     assert names.index("types") == names.index("imports") + 1
     c = next(c for c in verify.STAGES["quick"] if c.name == "types")
     assert c.cmd == ["uv", "run", "pyright"]
+
+
+def _write_meta(root: Path, rel: str, codes: dict[str, int]) -> None:
+    meta = root / "mutants" / (rel + ".meta")
+    meta.parent.mkdir(parents=True, exist_ok=True)
+    meta.write_text(json.dumps({"exit_code_by_key": codes}), encoding="utf-8")
+
+
+def test_mutation_scoresはmetaからファイル別に集計する(tmp_path):
+    """spec §2.3: killed = 1/3/-24。survived(0)・no tests(5/33)・timeout は未検出扱い。"""
+    _write_meta(tmp_path, "hooks/lib/a.py", {"k1": 1, "k2": 3, "k3": -24, "s": 0, "n": 5, "t": 24})
+    _write_meta(tmp_path, "hooks/lib/b.py", {})
+    scores = verify.mutation_scores(tmp_path)
+    assert scores == {"hooks/lib/a.py": {"score": 50.0, "killed": 3, "total": 6}}
+
+
+def test_baselineが無ければ作られる(tmp_path):
+    ok, problems = verify.check_mutation_baseline(
+        tmp_path, {"hooks/lib/a.py": {"score": 80.0, "killed": 8, "total": 10}}
+    )
+    assert ok and problems == []
+    data = json.loads((tmp_path / verify.BASELINE_REL).read_text(encoding="utf-8"))
+    assert data["files"] == {"hooks/lib/a.py": 80.0}
+
+
+def test_baselineを下回ればfailで一覧(tmp_path):
+    (tmp_path / "tests").mkdir()
+    (tmp_path / verify.BASELINE_REL).write_text(
+        json.dumps({"files": {"hooks/lib/a.py": 90.0}}), encoding="utf-8"
+    )
+    ok, problems = verify.check_mutation_baseline(
+        tmp_path, {"hooks/lib/a.py": {"score": 80.0, "killed": 8, "total": 10}}
+    )
+    assert not ok and problems == ["hooks/lib/a.py: score 80.0 < baseline 90.0"]
+    assert json.loads((tmp_path / verify.BASELINE_REL).read_text())["files"] == {
+        "hooks/lib/a.py": 90.0
+    }
+
+
+def test_baselineを上回れば書き換える(tmp_path):
+    (tmp_path / "tests").mkdir()
+    (tmp_path / verify.BASELINE_REL).write_text(
+        json.dumps({"files": {"hooks/lib/a.py": 70.0}}), encoding="utf-8"
+    )
+    ok, _ = verify.check_mutation_baseline(
+        tmp_path, {"hooks/lib/a.py": {"score": 80.0, "killed": 8, "total": 10}}
+    )
+    assert ok
+    assert json.loads((tmp_path / verify.BASELINE_REL).read_text())["files"] == {
+        "hooks/lib/a.py": 80.0
+    }
+
+
+def test_baselineにあって結果に無いファイルはfail(tmp_path):
+    (tmp_path / "tests").mkdir()
+    (tmp_path / verify.BASELINE_REL).write_text(
+        json.dumps({"files": {"hooks/lib/gone.py": 70.0}}), encoding="utf-8"
+    )
+    ok, problems = verify.check_mutation_baseline(tmp_path, {})
+    assert not ok and problems
+    assert problems[0].startswith("hooks/lib/gone.py: baseline 70.0 にあるが")
+
+
+def test_run_mutationはmutmut失敗で偽(tmp_path, capsys):
+    assert verify.run_mutation(tmp_path, runner=lambda root: (1, "boom")) is False
+    assert "boom" in capsys.readouterr().err
+
+
+def test_run_mutationは結果が無ければ偽(tmp_path, capsys):
+    assert verify.run_mutation(tmp_path, runner=lambda root: (0, "")) is False
+    assert "only_mutate" in capsys.readouterr().err
+
+
+def test_run_mutationは表を出しbaselineを更新して真(tmp_path, capsys):
+    def fake(root: Path) -> tuple[int, str]:
+        _write_meta(root, "hooks/lib/a.py", {"k": 1, "s": 0})
+        return 0, ""
+
+    assert verify.run_mutation(tmp_path, runner=fake) is True
+    out = capsys.readouterr().out
+    assert "hooks/lib/a.py" in out and "50.0" in out
+    assert (tmp_path / verify.BASELINE_REL).exists()
+
+
+def test_mainはmutationとallを受け付ける(monkeypatch):
+    calls: list[str] = []
+    monkeypatch.setattr(
+        verify, "run_stage", lambda stage, checks=None, repo_root=None: calls.append(stage) or True
+    )
+    monkeypatch.setattr(verify, "run_mutation", lambda: calls.append("mutation") or True)
+    assert verify.main(["mutation"]) == 0 and calls == ["mutation"]
+    calls.clear()
+    assert verify.main(["all"]) == 0 and calls == ["quick", "mutation"]
+
+
+def test_mainのallはquickが落ちればmutationを回さない(monkeypatch):
+    calls: list[str] = []
+    monkeypatch.setattr(
+        verify, "run_stage", lambda stage, checks=None, repo_root=None: calls.append(stage) or False
+    )
+    monkeypatch.setattr(verify, "run_mutation", lambda: calls.append("mutation") or True)
+    assert verify.main(["all"]) == 1 and calls == ["quick"]
