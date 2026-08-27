@@ -4,8 +4,10 @@ loop-hooks の Stop ゲートから `uv run python scripts/verify.py quick` と�
 `quick` の中身は CI(.github/workflows/ci.yml)と同じコマンド・同じ順序に保つこと
 (tests/test_verify.py::test_quick_stage_mirrors_ci が両方向で一致を検査する)。
 
+`properties` は tests/test_properties.py を hypothesis の thorough プロファイル(300 例)で
+回す。quick(25 例)と CI には載せない。
 `mutation` は mutmut を毎回フル実行し、ファイル別 score を `tests/mutation-baseline.json`
-とラチェット比較する。`all` は quick 成功後に mutation。どちらも Stop ゲート・CI には
+とラチェット比較する。`all` は quick → properties → mutation。いずれも Stop ゲート・CI には
 載せない(約 1〜3 分)。killed 件数で比較し、1 変異分の揺れは許容する。total が変われば再基準化。
 
 evidence は書かない。「走ったか・なぜ走らなかったか」はプラグイン側の判定ログ
@@ -74,6 +76,17 @@ STAGES: dict[str, list[Check]] = {
         Check("tests", ["uv", "run", "pytest", "-q"]),
     ],
 }
+
+# spec 第 4 段階 §2.3: hypothesis を 300 例で回す。quick(25 例)と CI には載せない
+PROPERTIES_CHECK = Check(
+    "properties",
+    ["uv", "run", "pytest", "-q", "tests/test_properties.py"],
+    env=(("HYPOTHESIS_PROFILE", "thorough"),),
+)
+
+
+def run_properties(repo_root: Path = REPO_ROOT) -> bool:
+    return run_stage("properties", [PROPERTIES_CHECK], repo_root)
 
 
 def _run(check: Check, repo_root: Path) -> tuple[bool, str]:
@@ -230,14 +243,16 @@ def run_mutation(
 
 
 def main(argv: Sequence[str]) -> int:
-    stages = [*STAGES, "mutation", "all"]
+    stages = [*STAGES, "properties", "mutation", "all"]
     if len(argv) != 1 or argv[0] not in stages:
         print(f"usage: verify.py {{{'|'.join(stages)}}}", file=sys.stderr)
         return 2
+    if argv[0] == "properties":
+        return 0 if run_properties() else 1
     if argv[0] == "mutation":
         return 0 if run_mutation() else 1
     if argv[0] == "all":
-        return 0 if run_stage("quick") and run_mutation() else 1
+        return 0 if run_stage("quick") and run_properties() and run_mutation() else 1
     return 0 if run_stage(argv[0]) else 1
 
 

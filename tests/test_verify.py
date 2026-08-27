@@ -330,7 +330,7 @@ def test_run_mutationは表を出しbaselineを更新して真(tmp_path, capsys)
     assert (tmp_path / verify.BASELINE_REL).exists()
 
 
-def test_mainはmutationとallを受け付ける(monkeypatch):
+def test_mainはproperties_mutation_allを受け付ける(monkeypatch):
     calls: list[str] = []
     monkeypatch.setattr(
         verify, "run_stage", lambda stage, checks=None, repo_root=None: calls.append(stage) or True
@@ -338,13 +338,33 @@ def test_mainはmutationとallを受け付ける(monkeypatch):
     monkeypatch.setattr(verify, "run_mutation", lambda: calls.append("mutation") or True)
     assert verify.main(["mutation"]) == 0 and calls == ["mutation"]
     calls.clear()
-    assert verify.main(["all"]) == 0 and calls == ["quick", "mutation"]
+    assert verify.main(["properties"]) == 0 and calls == ["properties"]
+    calls.clear()
+    assert verify.main(["all"]) == 0 and calls == ["quick", "properties", "mutation"]
 
 
-def test_mainのallはquickが落ちればmutationを回さない(monkeypatch):
+def test_mainのallはpropertiesが落ちればmutationを回さない(monkeypatch):
+    calls: list[str] = []
+    monkeypatch.setattr(
+        verify,
+        "run_stage",
+        lambda stage, checks=None, repo_root=None: calls.append(stage) or stage != "properties",
+    )
+    monkeypatch.setattr(verify, "run_mutation", lambda: calls.append("mutation") or True)
+    assert verify.main(["all"]) == 1 and calls == ["quick", "properties"]
+
+
+def test_mainのallはquickが落ちればpropertiesとmutationを回さない(monkeypatch):
     calls: list[str] = []
     monkeypatch.setattr(
         verify, "run_stage", lambda stage, checks=None, repo_root=None: calls.append(stage) or False
     )
     monkeypatch.setattr(verify, "run_mutation", lambda: calls.append("mutation") or True)
     assert verify.main(["all"]) == 1 and calls == ["quick"]
+
+
+def test_propertiesチェックはthoroughプロファイルでtest_propertiesだけを回す():
+    c = verify.PROPERTIES_CHECK
+    assert c.cmd == ["uv", "run", "pytest", "-q", "tests/test_properties.py"]
+    assert dict(c.env) == {"HYPOTHESIS_PROFILE": "thorough"}
+    assert "properties" not in [x.name for x in verify.STAGES["quick"]]
