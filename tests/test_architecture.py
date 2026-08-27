@@ -169,6 +169,22 @@ def test_判定式_blockedは現在の指紋と一致するときだけで再ブ
     assert status.collect(root)["blocked"] is False  # 状態が変わればまたブロックする
 
 
+def test_判定式_指紋が取れないときのblockedはgateの固定キーと同じ(tmp_path, monkeypatch):
+    root = _repo(tmp_path, command="false")
+    monkeypatch.setattr(fingerprint, "compute", lambda root, gate_cfg: None)
+    gate.handle(_stop(root))  # 失敗、"fp-unavailable" でブロック記録
+    assert state.read_blocked(root) == status.FP_UNAVAILABLE_KEY
+    assert status.collect(root)["blocked"] is True
+    out = gate.handle(_stop(root))
+    assert out and "systemMessage" in out  # gate も再ブロックしない
+
+
+def test_gateの指紋不能キーはstatusの定数と同じ文字列():
+    """gate と status の指紋不能キーは同じ文字列で一致(文字列で固定)。"""
+    src = (ROOT / "hooks" / "gate.py").read_text(encoding="utf-8")
+    assert f'"{status.FP_UNAVAILABLE_KEY}"' in src
+
+
 # ---- (c) 状態・ログの書込先はリポジトリ外の既定領域から出ない ----
 
 
