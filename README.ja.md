@@ -308,7 +308,7 @@ uv run pytest -v
 `tests/test_properties.py` には hypothesis の property-based test がある(ゲートと CI では 25 例、
 `verify.py all` では 300 例)。
 
-`uv run python scripts/verify.py all` は mutation testing(`hooks/lib` に対する mutmut、約3分)を追加する。
+`uv run python scripts/verify.py all` は `properties` ステージ(300 例)と mutation testing(`hooks/lib` に対する mutmut)を追加する(全体で約 1.5〜3 分)。
 ファイル別スコアのラチェットは `tests/mutation-baseline.json` にあり、ゲートには含まれない。
 
 ## 制限

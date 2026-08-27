@@ -330,8 +330,8 @@ first run.
 `tests/test_properties.py` holds hypothesis property tests (25 examples in the gate and CI, 300 in
 `verify.py all`).
 
-`uv run python scripts/verify.py all` adds mutation testing (mutmut over `hooks/lib`, about three
-minutes) with a per-file score ratchet in `tests/mutation-baseline.json`; it is not part of the gate.
+`uv run python scripts/verify.py all` adds the `properties` stage (300 examples) and mutation testing (mutmut over `hooks/lib`; the
+whole run takes about 1.5–3 minutes) with a per-file score ratchet in `tests/mutation-baseline.json`; it is not part of the gate.
 
 ## Limitations
 

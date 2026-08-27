@@ -44,15 +44,28 @@ from hypothesis import settings
 settings.register_profile("default", max_examples=25, deadline=None)
 settings.register_profile("thorough", max_examples=300, deadline=None)
 settings.register_profile("mutation", max_examples=5, deadline=None)
-settings.load_profile(
-    "mutation" if os.environ.get("MUTANT_UNDER_TEST")
-    else os.environ.get("HYPOTHESIS_PROFILE", "default")
-)
+# import 時は HYPOTHESIS_PROFILE だけを見る(MUTANT_UNDER_TEST では選ばない — §3 参照)
+settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "default"))
+
+MUTATION_MAX_EXAMPLES: int = settings.get_profile("mutation").max_examples
+
+
+def pytest_runtest_setup(item):
+    # mutmut は 1 つの永続プロセスを fork して変異ごとに pytest を再実行し、conftest は最初の
+    # import 時にしか評価されない。変異ごとの絞り込みは各テストの実行直前に行う。
+    if not os.environ.get("MUTANT_UNDER_TEST"):
+        return
+    fn = getattr(getattr(item, "obj", None), "__func__", getattr(item, "obj", None))
+    current = getattr(fn, "_hypothesis_internal_use_settings", None)
+    if current is not None:
+        fn._hypothesis_internal_use_settings = settings(current, max_examples=MUTATION_MAX_EXAMPLES)
 ```
 
 - `default`: `quick` と CI。P3 / P5 は上表の個別 `max_examples` を `@settings` で上書き(プロファイルより小さい値)。
 - `thorough`: `scripts/verify.py all` の新ステージ `properties`(下記)。
-- `mutation`: mutmut が各変異のテスト実行時に設定する `MUTANT_UNDER_TEST` を conftest が検出して自動選択。
+- `mutation`: mutmut が各変異のテスト実行時に設定する `MUTANT_UNDER_TEST` を `pytest_runtest_setup` が
+  テストごとに検出し、その場で例数を差し替える(import 時の選択は mutmut の stats フェーズで
+  固定されるので使わない)。
   これが無いと mutation の所要時間が数倍になる(922 変異 × 6 本 × 25 例)。
 
 ### 2.3 `scripts/verify.py` の `properties` ステージ
@@ -121,6 +134,11 @@ skip 解除)。
 `fingerprint.py` 140/147(P3 の +1)、`hook_io.py` 13/15(対象プロパティ無し、変化なし)、
 `log.py` 65/77(変化なし)、`state.py` 130/140(P6 強化の +1)、`status.py` 387/389(対象
 プロパティ無し、変化なし)。
+
+**プロパティ単独での killed(最終レビューで測定、例示テストをすべて外し `tests/test_properties.py`
+だけを test suite にした mutmut、5 例)**: `config.py` 14/154、`fingerprint.py` 81/147、`log.py` 44/77、
+`state.py` 74/140。6 組すべてが単独で変異を殺しており、§3 の「最低 1 件を殺す」は満たす。上表の
+増分 0 は例示テストに対する **増分** であり、例示テストが既に飽和している箇所(等価変異のみ残存)。
 
 **増分 0 だった組の扱い(§2.5「性質を書き直す」)**
 
