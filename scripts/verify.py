@@ -35,9 +35,11 @@ FAIL_OUTPUT_TAIL = 4000
 CHECK_TIMEOUT_SEC = 600
 
 # mutmut の終了コード→状態(mutmut/__main__.py status_by_exit_code)のうち "killed" のもの。
-# survived(0)・no tests(5/33)・timeout・suspicious はすべて「検出できていない」として数える
-MUTATION_KILLED_CODES = frozenset({1, 3, -24})
+# survived(0)・no tests(5/33)・timeout(-24)・suspicious はすべて「検出できていない」として数える。
+# -24 は変異が暴走して CPU 上限に達した目印であり、テストが検出した証拠ではない
+MUTATION_KILLED_CODES = frozenset({1, 3})
 MUTMUT_CMD = ["uv", "run", "mutmut", "run"]
+MUTMUT_TIMEOUT_SEC = 1800  # 通常 3 分。暴走変異で終わらないときの上限
 BASELINE_REL = Path("tests") / "mutation-baseline.json"
 
 
@@ -189,7 +191,10 @@ def _run_mutmut(repo_root: Path) -> tuple[int, str]:
             errors="replace",
             cwd=repo_root,
             check=False,
+            timeout=MUTMUT_TIMEOUT_SEC,
         )
+    except subprocess.TimeoutExpired:
+        return 1, f"mutmut timed out after {MUTMUT_TIMEOUT_SEC}s"
     except OSError as exc:
         return 1, f"{MUTMUT_CMD[0]}: {exc}"
     return proc.returncode, proc.stdout + proc.stderr

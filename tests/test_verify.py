@@ -2,6 +2,7 @@
 
 import json
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -204,11 +205,28 @@ def _write_meta(root: Path, rel: str, codes: dict[str, int]) -> None:
 
 
 def test_mutation_scoresはmetaからファイル別に集計する(tmp_path):
-    """spec §2.3: killed = 1/3/-24。survived(0)・no tests(5/33)・timeout は未検出扱い。"""
-    _write_meta(tmp_path, "hooks/lib/a.py", {"k1": 1, "k2": 3, "k3": -24, "s": 0, "n": 5, "t": 24})
+    """spec §2.3: killed = 1/3。survived(0)・no tests(5/33)・timeout(-24) は未検出扱い。"""
+    _write_meta(tmp_path, "hooks/lib/a.py", {"k1": 1, "k2": 3, "s": 0, "n": 5, "n2": 33, "t": -24})
     _write_meta(tmp_path, "hooks/lib/b.py", {})
     scores = verify.mutation_scores(tmp_path)
-    assert scores == {"hooks/lib/a.py": {"score": 50.0, "killed": 3, "total": 6}}
+    assert scores == {"hooks/lib/a.py": {"score": 33.3, "killed": 2, "total": 6}}
+
+
+def test_タイムアウトした変異はkilledに数えない(tmp_path):
+    """-24(mutmut の CPU 上限)は暴走変異の目印で、テストが検出した証拠ではない。"""
+    _write_meta(tmp_path, "hooks/lib/a.py", {"t": -24, "k": 1})
+    assert verify.mutation_scores(tmp_path)["hooks/lib/a.py"]["killed"] == 1
+    assert -24 not in verify.MUTATION_KILLED_CODES
+
+
+def test_run_mutmutは上限時間で打ち切り失敗を返す(tmp_path, monkeypatch):
+    def fake_run(*args, **kwargs):
+        assert kwargs["timeout"] == verify.MUTMUT_TIMEOUT_SEC
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=kwargs["timeout"])
+
+    monkeypatch.setattr(verify.subprocess, "run", fake_run)
+    code, out = verify._run_mutmut(tmp_path)
+    assert code == 1 and out == f"mutmut timed out after {verify.MUTMUT_TIMEOUT_SEC}s"
 
 
 def _entry(killed: int, total: int) -> dict[str, Any]:
