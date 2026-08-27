@@ -141,6 +141,12 @@ def test_1文字のパスも取りこぼさない(tmp_path):
     assert fingerprint._changed_paths(str(repo)) == [b"a"]
 
 
+def test_リネームが最後のエントリでも例外を出さない(monkeypatch, tmp_path):
+    """旧パスのフィールドが続かない(出力が途切れた)場合でも読み飛ばしで落ちない。"""
+    monkeypatch.setattr(fingerprint, "_git", lambda cwd, *args: b"R  new.ts\0")
+    assert fingerprint._changed_paths(str(tmp_path)) == [b"new.ts"]
+
+
 # --- compute ---
 
 

@@ -50,20 +50,15 @@ def _changed_paths(root: str) -> list[bytes] | None:
     out = _git(root, "status", "--porcelain=v1", "-uall", "-z")
     if out is None:
         return None
-    fields = out.split(b"\0")
+    fields = iter(out.split(b"\0"))
     paths: list[bytes] = []
-    i = 0
-    while i < len(fields):
-        entry = fields[i]
-        i += 1
+    for entry in fields:
         if len(entry) < 4:
             continue
         status, path = entry[:2], entry[3:]
         paths.append(path)
         if b"R" in status or b"C" in status:
-            # リネーム/コピー元のパスは次のフィールドに続く。
-            # pragma: no mutate — `i -= 1` の変異が無限ループ化し RAM を食い潰す(spec §2.5)
-            i += 1  # pragma: no mutate
+            next(fields, None)  # リネーム/コピー元のパスは次のフィールドに続く
     return paths
 
 
