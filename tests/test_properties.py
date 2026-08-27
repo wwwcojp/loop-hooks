@@ -6,11 +6,13 @@
 """
 
 import fnmatch
+import subprocess
 import sys
 import uuid
 from pathlib import Path
 from typing import Any
 
+import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
@@ -169,3 +171,45 @@ def test_P6b_壊れた状態ファイルは例外を出さずNone(data: bytes):
     p.write_bytes(data)
     assert state.read_verified(root) is None or isinstance(state.read_verified(root), str)
     assert state.read_blocked(root) is None or isinstance(state.read_blocked(root), str)
+
+
+# ---- P3: compute は決定的で、watch 外の変更に不変、watch 内の変更に敏感 ----
+
+_P3_CFG = {"watch": ["*.py"], "ignore": ["*.md"]}
+
+
+def _git(cwd: Path, *args: str) -> None:
+    subprocess.run(("git", *args), cwd=cwd, capture_output=True, check=True)  # noqa: S607
+
+
+@pytest.fixture(scope="module")
+def p3_repo(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """P3 用の git リポジトリ.
+
+    モジュールで 1 回だけ作る。例ごとに 2 ファイルの内容だけ書き換える。
+    """
+    repo = tmp_path_factory.mktemp("p3-repo")
+    _git(repo, "init", "-q")
+    _git(repo, "config", "user.email", "t@example.com")
+    _git(repo, "config", "user.name", "t")
+    _git(repo, "config", "commit.gpgsign", "false")
+    (repo / "watched.py").write_bytes(b"initial\n")
+    (repo / "unwatched.md").write_bytes(b"initial\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "init")
+    return repo
+
+
+@settings(deadline=None, max_examples=10)
+@given(a=st.binary(max_size=64), b=st.binary(max_size=64))
+def test_P3_computeは決定的でwatch外に不変watch内に敏感(p3_repo: Path, a: bytes, b: bytes):
+    root = str(p3_repo)
+    (p3_repo / "unwatched.md").write_bytes(a)
+    (p3_repo / "watched.py").write_bytes(b)
+    fp1 = fingerprint.compute(root, _P3_CFG)
+    fp2 = fingerprint.compute(root, _P3_CFG)
+    assert fp1 is not None and fp1 == fp2  # 決定性
+    (p3_repo / "unwatched.md").write_bytes(a + b"x")
+    assert fingerprint.compute(root, _P3_CFG) == fp1  # watch 外は不変
+    (p3_repo / "watched.py").write_bytes(b + b"x")
+    assert fingerprint.compute(root, _P3_CFG) != fp1  # watch 内は変わる
