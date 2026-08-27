@@ -74,6 +74,7 @@ also_copy = [
   - 下回ったファイルがあれば非ゼロ終了(全件列挙)。
   - baseline にあって結果に無いファイル(`only_mutate` から外れた)は fail。対象の縮小は baseline も手で外す。
   - 上回ったファイルがあれば baseline を書き換える(ランナー自身だけが上げる。下げる経路は無い)。
+  - ラチェットは 1 変異分(100/total)の下振れを許容する(理由: タイムアウトが killed 扱いになる揺れ)。
 - `all` = `quick` + `mutation`。コミット前・フェーズ完了時に手で回す。**Stop ゲートには載せない**
   (約 3 分)。CI でも回さない(時間と再現性。ランナー自身の改変はレビューで見る)。
 - 出力: ファイル別の表と baseline との差分、fail の理由。survived の一覧は `uv run mutmut results` /
@@ -101,6 +102,8 @@ also_copy = [
 
 - 到達できない分は **pragma で除外せず**、baseline にそのまま記録して残す(次の運用で上げる)。
   除外が要る場合(例: 等価変異)は `# pragma: no mutate` に理由を添え、spec に一覧を持つ。
+- pragma 一覧: `hooks/lib/fingerprint.py::_changed_paths` の `i += 1` — 理由: 変異 47 が無限ループ化し
+  RAM 11GB+(等価ではないが実行不能)。
 - テストを足すときは通常の TDD(先に失敗させる)を守る。mutation が「落ちるべきなのに落ちない」を
   示した後、その変異を殺すテストを書いて `mutation` で killed になることを確認する。
 
@@ -115,7 +118,9 @@ also_copy = [
 
 ## 3. 受け入れ条件
 
-- `uv run python scripts/verify.py all` が exit 0、所要 5 分以内(実測を記録)。
+- `uv run python scripts/verify.py all` が exit 0。所要は `mutation` 168〜400 秒(負荷・暴走変異の
+  有無で変動)、`all` 3〜7 分(実測を記録)。5 分以内という受け入れ条件は隔離環境なら 3 分前後で
+  収まるが、負荷がかかると超える、というのが正直な実態。
 - `tests/mutation-baseline.json` に 6 ファイルの score。トリアージ後の目標: `hook_io` / `log` /
   `fingerprint` / `config` / `state` ≥ 85、`status` ≥ 80。届かないファイルは理由を本書に記録。
 - テストを 1 つ無効化して `mutation` が非ゼロ終了することを確認(記録)。
@@ -151,8 +156,7 @@ config 93.5 / fingerprint 95.4 / hook_io 86.7 / log 84.4 / state 92.1 / status 9
 | score 目標に届かない | 未達を baseline に記録して次に回す。pragma で誤魔化さない |
 | 変異 `fingerprint.x__changed_paths__mutmut_47`(リネーム後の `i -= 1`)が無限ループ化し
   11GB+ の RAM を消費(kill が必要、mutmut は segfault=killed と記録する) |
-  対策候補: `ulimit -v` や mutmut 側のタイムアウト設定。実行は当面手動のみで監視する |
+  対策済み(0.5.0): 対象行に `# pragma: no mutate` を付けて除外(2.5) |
 | mutmut のスコアが非決定的に揺れる(ソース・テストに変更が無くても score が変動した例:
   fingerprint 94.8→95.4)。ラチェットが下がる方向に揺れると偽の FAIL になりうる |
-  対策候補: 落ちたら1回再実行して判定する、または baseline との比較に許容幅を持たせる
-  (第3段階では記録のみ、実装は次段階) |
+  対策済み(0.5.0): ラチェットに 1 変異分(100/total)の許容幅を持たせた(2.3) |

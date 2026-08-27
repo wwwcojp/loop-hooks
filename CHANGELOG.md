@@ -7,10 +7,13 @@
   scripts/verify.py mutation` runs mutmut over `hooks/lib` (928 mutants, about 170 seconds),
   scores each file, and fails when a file drops below `tests/mutation-baseline.json`;
   the runner raises the baseline itself when a score improves. `all` = `quick` + `mutation`.
-  Neither is part of the end-of-turn gate or CI.
+  Neither is part of the end-of-turn gate or CI. Timing: about 3 minutes in isolation, up to
+  ~7 under load. The ratchet tolerates a one-mutant dip (mutmut is not fully deterministic).
 - Tests added by the first triage: `hook_io` is now called directly (it was only exercised
   through subprocesses), `fingerprint` pins the git timeout, `log` pins the UTC timestamp
   format and trim boundaries, `status.render` has golden output.
+- One mutant in `fingerprint._changed_paths` is excluded with `# pragma: no mutate` because
+  it loops forever and exhausts memory.
 
 ### Changed
 - **Imports are rooted at the plugin directory** (`from hooks.lib import …`) so that

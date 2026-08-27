@@ -31,7 +31,7 @@ Claude Code のフックプラグイン。ターン終了時にリポジトリ�
 
 - テスト: `uv run pytest -q`(`tests/conftest.py` が状態ディレクトリを tmp に隔離する)
 - 検証一式: `uv run python scripts/verify.py quick`
-- 検証一式(mutation 込み): `uv run python scripts/verify.py all`(約 3 分。コミット前・フェーズ完了時に回す)。
+- 検証一式(mutation 込み): `uv run python scripts/verify.py all`(3〜7 分。コミット前・フェーズ完了時に回す)。
   `tests/mutation-baseline.json` はランナーだけが上げる。手で下げない。`mutants/` は作業領域で触らない
 - 状態の確認: `/loop-hooks:status`(ターミナルなら `uv run hooks/gate.py --status .`。どちらも `records` 行に読んだ置き場が出る)
 - 実ホームパスをソース・コミットメッセージに書かない(CI が落ちる)。プレースホルダーは `/home/USER`
