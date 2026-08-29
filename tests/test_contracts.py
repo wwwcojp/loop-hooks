@@ -17,7 +17,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from hooks import gate, session_start  # noqa: E402
-from hooks.lib import config  # noqa: E402
+from hooks.lib import config, log  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACTS = ROOT / "tests" / "contracts"
@@ -141,6 +141,13 @@ def test_入口の出力はゴールデンと一致する(name, tmp_path):
     assert out == golden["output"], name
     assert exit_code == golden["exit_code"], name
     assert stderr == golden["stderr"], name
+
+
+def test_stop_passは実際にゲートを走らせて通している(tmp_path):
+    """output: null は skipped / off でも同じ形になる。ran で pass したことを記録で固定する。"""
+    _, _, _, ctx = run_case("stop-pass", tmp_path)
+    rec = log.tail(ctx["cwd"], 1)[0]
+    assert rec["decision"] == "ran" and rec["result"] == "pass"
 
 
 def test_ゴールデンのケースは9本で名前が揃っている():

@@ -57,19 +57,27 @@ def _repo(tmp_path: Path, command: str = "true") -> str:
 
 
 def _own_imports(path: Path) -> list[tuple[str, list[str], bool]]:
-    """自リポジトリ由来の import を (モジュール名, 取り込む名前, モジュール直下か) で返す。"""
+    """自リポジトリ由来の import を (モジュール名, 取り込む名前, モジュール直下か) で返す。
+
+    「モジュール直下」= 関数・クラス定義の外側。try / if / with で包まれていても直下とみなす
+    (import 時に実行されるため)。
+    """
     tree = ast.parse(path.read_text(encoding="utf-8"))
-    top_level = set(map(id, tree.body))
+    nested: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            nested.update(id(child) for child in ast.walk(node) if child is not node)
     found: list[tuple[str, list[str], bool]] = []
     for node in ast.walk(tree):
+        top = id(node) not in nested
         if isinstance(node, ast.Import):
             for alias in node.names:
                 if _is_own(alias.name):
-                    found.append((alias.name, [], id(node) in top_level))
+                    found.append((alias.name, [], top))
         elif isinstance(node, ast.ImportFrom):
             module = node.module or ""
             if node.level > 0 or _is_own(module):
-                found.append((module, [a.name for a in node.names], id(node) in top_level))
+                found.append((module, [a.name for a in node.names], top))
     return found
 
 
@@ -90,6 +98,32 @@ def test_入口はモジュール直下でstatusをimportしない():
         for module, names, top in _own_imports(ROOT / "hooks" / name):
             if top:
                 assert "status" not in names and module != "hooks.lib.status", (name, module)
+
+
+def test_own_importsはtryやifの中のimportもモジュール直下として扱う(tmp_path):
+    """関数・クラスの外側はすべて「モジュール直下」。try / if / with で包んでも規則を逃れない。"""
+    src = "\n".join(
+        [
+            "import sys",
+            "try:",
+            "    from hooks.lib import status",
+            "except ImportError:",
+            "    pass",
+            "if sys.version_info >= (3, 10):",
+            "    import hooks.lib.log",
+            "def f():",
+            "    from hooks.lib import config",
+            "class C:",
+            "    from hooks.lib import state",
+        ]
+    )
+    p = tmp_path / "entry.py"
+    p.write_text(src, encoding="utf-8")
+    found = {(module, tuple(names), top) for module, names, top in _own_imports(p)}
+    assert ("hooks.lib", ("status",), True) in found
+    assert ("hooks.lib.log", (), True) in found
+    assert ("hooks.lib", ("config",), False) in found
+    assert ("hooks.lib", ("state",), False) in found
 
 
 def test_入口はプラグインルートをsys_pathに入れてからimportする():
