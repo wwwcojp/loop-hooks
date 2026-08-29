@@ -92,7 +92,8 @@ def test_直近のログが新しい順に載る(tmp_path):
     info = status.collect(str(r))
     assert [x["decision"] for x in info["recent"]] == ["skipped", "ran"]
     out = status.render(info)
-    assert out.index("skipped") < out.index("fail")
+    recent_out = out[out.index("  recent") :]
+    assert recent_out.index("skipped") < recent_out.index("fail")
 
 
 def test_コマンドを実行しない(tmp_path):
@@ -197,6 +198,8 @@ def test_renderのゴールデン_有効で未検証(tmp_path, monkeypatch):
             "  state     changed since last pass -> gate will run at next stop",
             "  blocked   no",
             f"  records   {tmp_path / 'data' / 'state'}",
+            f"  summary   1 records since {ts}: ran 1 (pass 1 / fail 0 / warn 0), "
+            "skipped 0, median 1.2s",
             f"  recent    {ts:<16} Stop          ran       pass  1.2s",
         ]
     )
@@ -357,4 +360,98 @@ def test_configが無くてもinfoの全キーが揃う(tmp_path):
         "blocked",
         "recent",
         "state_dir",
+        "summary",
     }
+
+
+# ---- summary: ログ全体の集計行(0.8.0) ----
+
+
+def _ran(result: str, ms: int) -> dict:
+    return {"event": "Stop", "decision": "ran", "result": result, "ms": ms}
+
+
+def test_summarizeは件数と中央値を集計する():
+    records = [  # log.tail の順(新しい順)
+        {"event": "Stop", "decision": "skipped", "ts": "2026-08-27T15:28:18Z"},
+        {**_ran("fail", 12000), "ts": "2026-08-27T15:00:00Z"},
+        {**_ran("warn", 9000), "ts": "2026-08-27T14:00:00Z"},
+        {**_ran("pass", 11543), "ts": "2026-08-27T13:00:00Z"},
+        {"event": "SessionStart", "decision": "announced", "ts": "2026-08-26T13:10:16Z"},
+    ]
+    s = status.summarize(records)
+    assert s == {
+        "records": 5,
+        "since": "2026-08-26T13:10:16Z",
+        "ran": 3,
+        "pass": 1,
+        "fail": 1,
+        "warn": 1,
+        "skipped": 1,
+        "median_ms": 11543,
+        "slow": False,
+    }
+
+
+def test_summarizeは空ならNone():
+    assert status.summarize([]) is None
+
+
+def test_summarizeの中央値は上側中央値でmsが無ければNone():
+    assert (
+        status.summarize([_ran("pass", 1), _ran("pass", 2), _ran("pass", 4), _ran("pass", 8)])[
+            "median_ms"
+        ]
+        == 4
+    )
+    no_ms = status.summarize([{"event": "Stop", "decision": "ran", "result": "pass"}])
+    assert no_ms["median_ms"] is None
+
+
+def test_summarizeのslowは中央値または直近5件の最大が予算超過():
+    budget = status.SLOW_BUDGET_SEC * 1000
+    assert status.summarize([_ran("pass", budget + 1)])["slow"] is True
+    fast = [_ran("pass", 1000)] * 10
+    assert status.summarize(fast)["slow"] is False
+    assert status.summarize([_ran("pass", budget + 1), *fast])["slow"] is True  # 直近 1 件が超過
+    assert status.summarize([*fast, _ran("pass", budget + 1)])["slow"] is False  # 古い 1 件は無視
+
+
+def test_collectにsummaryが入る(tmp_path):
+    root = str(repo(tmp_path))
+    log.append(root, _ran("pass", 1234))
+    s = status.collect(root)["summary"]
+    assert s["records"] == 1 and s["pass"] == 1 and s["median_ms"] == 1234
+
+
+def test_renderのsummary行の書式(tmp_path):
+    root = str(repo(tmp_path))
+    log.append(root, _ran("fail", 12000))
+    log.append(root, _ran("pass", 11000))
+    log.append(root, {"event": "Stop", "decision": "skipped"})
+    info = status.collect(root)
+    since = info["summary"]["since"][:16].replace("T", " ")
+    line = (
+        f"  summary   3 records since {since}: ran 2 (pass 1 / fail 1 / warn 0), "
+        "skipped 1, median 12.0s"
+    )
+    assert line in status.render(info).splitlines()
+
+
+def test_renderのsummaryが無ければその旨(tmp_path):
+    out = status.render(status.collect(str(repo(tmp_path))))
+    assert "  summary   (no records)" in out.splitlines()
+
+
+def test_renderのsummaryにslow警告(tmp_path):
+    root = str(repo(tmp_path))
+    log.append(root, _ran("pass", status.SLOW_BUDGET_SEC * 1000 + 1))
+    out = status.render(status.collect(root))
+    assert " (slow: over the 30s budget, split the command)" in out
+
+
+def test_recentにreasonが載る(tmp_path):
+    root = str(repo(tmp_path))
+    log.append(root, {**_ran("fail", 1000), "reason": "[verify] lint: FAIL"})
+    out = status.render(status.collect(root))
+    assert "ran       fail  1.0s [verify] lint: FAIL" in out

@@ -10,6 +10,7 @@ from . import config, fingerprint, log, state
 
 RECENT = 5
 RECENT_SEARCH = 200  # 最新の ran をこの範囲まで遡って探す
+SLOW_BUDGET_SEC = 30  # Stop ゲートの予算(親 spec §7)。超えたら summary で分離を促す
 
 
 def _recent(root: str) -> list[dict[str, Any]]:
@@ -20,6 +21,29 @@ def _recent(root: str) -> list[dict[str, Any]]:
         return recent
     last_ran = next((r for r in records[RECENT:] if r.get("decision") == "ran"), None)
     return recent + [last_ran] if last_ran else recent
+
+
+def summarize(records: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """ログ全体(新しい順)の集計。空なら None。中央値は上側中央値(偶数件なら大きい側)。"""
+    if not records:
+        return None
+    ran = [r for r in records if r.get("decision") == "ran"]
+    ms: list[int] = sorted(r["ms"] for r in ran if isinstance(r.get("ms"), int))
+    median: int | None = ms[len(ms) // 2] if ms else None
+    recent_ms: list[int] = [r["ms"] for r in ran[:RECENT] if isinstance(r.get("ms"), int)]
+    budget = SLOW_BUDGET_SEC * 1000
+    slow = (median is not None and median > budget) or any(m > budget for m in recent_ms)
+    return {
+        "records": len(records),
+        "since": str(records[-1].get("ts") or ""),
+        "ran": len(ran),
+        "pass": sum(1 for r in ran if r.get("result") == "pass"),
+        "fail": sum(1 for r in ran if r.get("result") == "fail"),
+        "warn": sum(1 for r in ran if r.get("result") == "warn"),
+        "skipped": sum(1 for r in records if r.get("decision") == "skipped"),
+        "median_ms": median,
+        "slow": slow,
+    }
 
 
 def collect(cwd: str) -> dict[str, Any]:
@@ -41,6 +65,7 @@ def collect(cwd: str) -> dict[str, Any]:
         "will_run": None,
         "blocked": None,
         "recent": _recent(root or cwd),
+        "summary": summarize(log.tail(root or cwd, log.MAX_LINES)),
         "state_dir": str(state.state_dir()),
     }
     if cfg is None:
@@ -108,6 +133,7 @@ def render(info: dict[str, Any]) -> str:
         blocked_text = "yes (this state was already blocked once)" if info["blocked"] else "no"
         lines.append(_row("blocked", blocked_text))
     lines.append(_row("records", info["state_dir"]))
+    lines.append(_row("summary", _format_summary(info["summary"])))
     if info["recent"]:
         rows = [_safe_format_recent(r) for r in info["recent"]]
         lines.append(_row("recent", rows[0]))
@@ -115,6 +141,21 @@ def render(info: dict[str, Any]) -> str:
     else:
         lines.append(_row("recent", "(no runs recorded)"))
     return "\n".join(lines)
+
+
+def _format_summary(s: dict[str, Any] | None) -> str:
+    if not s:
+        return "(no records)"
+    since = str(s["since"])[:16].replace("T", " ")
+    median = f"{s['median_ms'] / 1000:.1f}s" if s["median_ms"] is not None else "n/a"
+    text = (
+        f"{s['records']} records since {since}: ran {s['ran']} "
+        f"(pass {s['pass']} / fail {s['fail']} / warn {s['warn']}), "
+        f"skipped {s['skipped']}, median {median}"
+    )
+    if s["slow"]:
+        text += f" (slow: over the {SLOW_BUDGET_SEC}s budget, split the command)"
+    return text
 
 
 def _safe_format_recent(r: dict[str, Any]) -> str:
@@ -135,4 +176,6 @@ def _format_recent(r: dict[str, Any]) -> str:
         parts.append(f"{r['ms'] / 1000:.1f}s")
     if r.get("note"):
         parts.append(str(r["note"]))
+    if r.get("reason"):
+        parts.append(str(r["reason"]))
     return " ".join(parts).rstrip()

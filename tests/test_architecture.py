@@ -246,7 +246,7 @@ def test_書込でリポジトリ内にファイルが増えない(tmp_path, tmp
 INFO_KEYS = {
     "cwd", "root", "config_source", "config_error", "notice", "command", "on", "watch",
     "ignore", "timeout_sec", "fingerprint", "verified", "will_run", "blocked", "recent",
-    "state_dir",
+    "state_dir", "summary",
 }  # fmt: skip
 
 
