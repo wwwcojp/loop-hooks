@@ -533,6 +533,38 @@ def test_失敗はran_failと記録される(tmp_path):
     assert (last(tmp_path)["decision"], last(tmp_path)["result"]) == ("ran", "fail")
 
 
+def test_失敗の記録には理由が入る(tmp_path):
+    gate.handle(setup_repo(tmp_path, "echo NOPE >&2; exit 1"))
+    rec = log.tail(str(tmp_path), 1)[0]
+    assert rec["result"] == "fail" and rec["reason"] == "NOPE"
+
+
+def test_理由はFAIL行を優先する(tmp_path):
+    gate.handle(setup_repo(tmp_path, "echo '[verify] lint: FAIL'; echo 'Found 2 errors.'; exit 1"))
+    assert log.tail(str(tmp_path), 1)[0]["reason"] == "[verify] lint: FAIL"
+
+
+def test_成功とskippedの記録には理由が無い(tmp_path):
+    event = setup_repo(tmp_path, "true")
+    gate.handle(event)
+    assert "reason" not in log.tail(str(tmp_path), 1)[0]
+    gate.handle(event)  # skipped
+    assert "reason" not in log.tail(str(tmp_path), 1)[0]
+
+
+def test_再入の警告記録にも理由が入る(tmp_path):
+    event = setup_repo(tmp_path, "echo BROKEN; exit 1")
+    event["stop_hook_active"] = True
+    gate.handle(event)
+    rec = log.tail(str(tmp_path), 1)[0]
+    assert rec["result"] == "warn" and rec["reason"] == "BROKEN"
+
+
+def test_タイムアウトの理由(tmp_path):
+    gate.handle(setup_repo(tmp_path, "sleep 5", timeout_sec=1))
+    assert log.tail(str(tmp_path), 1)[0]["reason"] == "timed out after 1s"
+
+
 def test_二重ブロック回避で通した回はran_warn(tmp_path):
     event = setup_repo(tmp_path, "false")
     gate.handle(event)

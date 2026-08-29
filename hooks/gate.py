@@ -154,6 +154,7 @@ def handle(event: dict[str, Any]) -> dict[str, Any] | None:
     else:
         out = _refuse(hook_event, root, current, detail, event)
         rec["result"] = "warn" if "systemMessage" in out else "fail"
+        rec["reason"] = log.failure_reason(detail)  # 0.8.0: --status が「何が落ちたか」を答えるため
     if cfg.get("_notice"):
         rec["note"] = "; ".join(filter(None, [rec.get("note"), cfg["_notice"][:80]]))
     log.append(root, rec)
