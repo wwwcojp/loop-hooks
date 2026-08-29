@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.11.1] - 2026-08-30
+
+### Fixed
+- Positive bracket classes no longer match `/` (`a[/]b` does not match `a/b`), matching git. Negated
+  classes already behaved this way.
+- `examples/verify.py` exits with code 2 and a message when it is not located in `<repo>/scripts/`,
+  instead of silently deriving the repository root from the wrong place. `--help` still works
+  from anywhere.
+
+### Changed
+- README documents that malformed patterns (an unclosed `[`, a reversed range) are matched literally,
+  where git would match nothing.
+- Tests: the gate's "could not run" path, the runner's timeout path, and property tests for
+  `is_watched` that no longer use the matcher as their own oracle.
+
+### Upgrading
+- No configuration changes. No restart needed: nothing in `hooks/gate.py` / `hooks/session_start.py`
+  changed.
+
 ## [0.11.0] - 2026-08-29
 
 ### Changed

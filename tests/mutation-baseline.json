@@ -21,9 +21,9 @@
       "total": 95
     },
     "hooks/lib/patterns.py": {
-      "score": 80.1,
-      "killed": 157,
-      "total": 196
+      "score": 80.8,
+      "killed": 164,
+      "total": 203
     },
     "hooks/lib/state.py": {
       "score": 90.9,
