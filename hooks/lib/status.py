@@ -10,8 +10,6 @@ from . import config, fingerprint, log, state
 
 RECENT = 5
 RECENT_SEARCH = 200  # 最新の ran をこの範囲まで遡って探す
-# gate._refuse が指紋不能時に使う固定キー(gate.py と文字列で一致させる)
-FP_UNAVAILABLE_KEY = "fp-unavailable"
 
 
 def _recent(root: str) -> list[dict[str, Any]]:
@@ -64,7 +62,7 @@ def collect(cwd: str) -> dict[str, Any]:
         return info
     current = fingerprint.compute(root, gate)
     verified = state.read_verified(root)
-    key = current if current is not None else FP_UNAVAILABLE_KEY
+    key = current if current is not None else state.FP_UNAVAILABLE_KEY
     info.update(
         fingerprint=current,
         verified=verified,

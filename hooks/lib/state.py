@@ -16,6 +16,10 @@ import os
 from pathlib import Path
 from typing import Any, cast
 
+# gate._refuse と status.collect が「指紋が取れない状態」を blocked として記録・照合する
+# ための固定キー。state が持つ(両者が import できる最下層に近いモジュール)。
+FP_UNAVAILABLE_KEY = "fp-unavailable"
+
 
 def state_dir() -> Path:
     """記録の置き場。フックには CLAUDE_PLUGIN_DATA が渡るのでそれを使う。

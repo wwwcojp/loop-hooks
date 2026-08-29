@@ -96,7 +96,7 @@ def _refuse(
     """
     if event.get("stop_hook_active"):
         return {"systemMessage": WARN + detail}
-    key = current if current is not None else "fp-unavailable"
+    key = current if current is not None else state.FP_UNAVAILABLE_KEY
     if key == state.read_blocked(root):
         return {"systemMessage": WARN + detail}
     state.write_blocked(root, key)

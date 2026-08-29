@@ -173,16 +173,27 @@ def test_判定式_指紋が取れないときのblockedはgateの固定キー�
     root = _repo(tmp_path, command="false")
     monkeypatch.setattr(fingerprint, "compute", lambda root, gate_cfg: None)
     gate.handle(_stop(root))  # 失敗、"fp-unavailable" でブロック記録
-    assert state.read_blocked(root) == status.FP_UNAVAILABLE_KEY
+    assert state.read_blocked(root) == state.FP_UNAVAILABLE_KEY
     assert status.collect(root)["blocked"] is True
     out = gate.handle(_stop(root))
     assert out and "systemMessage" in out  # gate も再ブロックしない
 
 
-def test_gateの指紋不能キーはstatusの定数と同じ文字列():
-    """gate と status の指紋不能キーは同じ文字列で一致(文字列で固定)。"""
-    src = (ROOT / "hooks" / "gate.py").read_text(encoding="utf-8")
-    assert f'"{status.FP_UNAVAILABLE_KEY}"' in src
+def test_gateの指紋不能キーはstateの定数を参照しリテラルを持たない():
+    """入口は lib を import できるが lib は入口を import できない。
+    定数は state が持ち、gate は参照する。"""
+    tree = ast.parse((ROOT / "hooks" / "gate.py").read_text(encoding="utf-8"))
+    literals = {
+        n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str)
+    }
+    assert state.FP_UNAVAILABLE_KEY not in literals
+    refs = {
+        (n.value.id, n.attr)
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name)
+    }
+    assert ("state", "FP_UNAVAILABLE_KEY") in refs
+    assert not hasattr(status, "FP_UNAVAILABLE_KEY")
 
 
 # ---- (c) 状態・ログの書込先はリポジトリ外の既定領域から出ない ----
