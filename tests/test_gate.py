@@ -202,6 +202,29 @@ def test_実行できないコマンドはblockになる(tmp_path):
     assert blocked(gate.handle(event))
 
 
+def test_起動できないコマンドのreasonはcould_not_run(tmp_path, monkeypatch):
+    # シェル自体が起動できない経路(Popen の OSError)。通常は再現できないので Popen を差し替える
+    event = setup_repo(tmp_path, "true")
+    real_popen = gate.subprocess.Popen
+
+    def boom(*args, **kwargs):
+        if kwargs.get("shell"):  # ゲートのシェル起動だけ落とす(git の呼び出しは素通し)
+            raise OSError("exec format error")
+        return real_popen(*args, **kwargs)
+
+    monkeypatch.setattr(gate.subprocess, "Popen", boom)
+    assert "could not run: exec format error" in blocked(gate.handle(event))
+    rec = log.tail(str(tmp_path), 1)[0]
+    assert rec["result"] == "fail"
+    assert rec["reason"] == "could not run: exec format error"
+
+
+def test_run_gateはcwdが無ければcould_not_runを返す():
+    ok, detail = gate.run_gate("true", "/no/such/dir-loop-hooks", 5)
+    assert ok is False
+    assert detail.startswith("$ true\ncould not run: ")
+
+
 def test_閉じない引用符のコマンドはblockになる(tmp_path):
     event = setup_repo(tmp_path, '"broken')
     assert blocked(gate.handle(event))
