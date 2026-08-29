@@ -131,12 +131,14 @@ def test_dependabotがActionsを週次で追う():
 
 
 def test_mutmutの設定とmutantsの除外():
-    """spec §2.2: 対象は hooks/lib 6 本。mutants/ は git・ruff・pyright・ゲートの対象外。"""
+    """spec §2.2: 対象は hooks/lib の 7 本(0.11.0 で patterns を追加)。
+    mutants/ は git・ruff・pyright・ゲートの対象外。"""
     cfg = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     mut = cfg["tool"]["mutmut"]
     assert mut["source_paths"] == ["hooks"]
     assert sorted(mut["only_mutate"]) == sorted(
-        f"hooks/lib/{n}.py" for n in ("config", "fingerprint", "hook_io", "log", "state", "status")
+        f"hooks/lib/{n}.py"
+        for n in ("config", "fingerprint", "hook_io", "log", "patterns", "state", "status")
     )
     assert "scripts" in mut["also_copy"] and ".loop-hooks.json" in mut["also_copy"]
     assert "mutants" in cfg["tool"]["ruff"]["extend-exclude"]

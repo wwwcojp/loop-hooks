@@ -55,23 +55,23 @@ forbidden_modules = ["hooks.gate", "hooks.session_start"]
 [[tool.importlinter.contracts]]
 name = "subprocess を使うのは fingerprint だけ"
 type = "forbidden"
-source_modules = ["hooks.lib.config", "hooks.lib.hook_io", "hooks.lib.log", "hooks.lib.state", "hooks.lib.status"]
+source_modules = ["hooks.lib.config", "hooks.lib.hook_io", "hooks.lib.log", "hooks.lib.patterns", "hooks.lib.state", "hooks.lib.status"]
 forbidden_modules = ["subprocess"]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]
 name = "lib の層(上が下に依存する)"
 type = "layers"
-layers = ["status", "log", "config", "fingerprint", "state", "hook_io"]
+layers = ["status", "log", "config", "fingerprint", "patterns", "state", "hook_io"]
 containers = ["hooks.lib"]
 
 [tool.mutmut]
-# 対象は hooks/lib 6 本。入口(gate.py / session_start.py)は subprocess 経由のテストが主体で
+# 対象は hooks/lib 7 本(0.11.0 で patterns 追加)。入口(gate.py / session_start.py)は subprocess 経由のテストが主体で
 # mutmut のカバレッジに見えにくいため対象外(spec §2.2)。also_copy はテストが読むファイル群。
 source_paths = ["hooks"]
 only_mutate = [
   "hooks/lib/config.py", "hooks/lib/fingerprint.py", "hooks/lib/hook_io.py",
-  "hooks/lib/log.py", "hooks/lib/state.py", "hooks/lib/status.py",
+  "hooks/lib/log.py", "hooks/lib/patterns.py", "hooks/lib/state.py", "hooks/lib/status.py",
 ]
 also_copy = [
   "scripts", "skills", "examples", ".claude-plugin", ".github", "docs",
