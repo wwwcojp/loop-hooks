@@ -94,8 +94,8 @@ ones with `gate.on`):
    finish. `Stop` and `SubagentStop` get it as `hookSpecificOutput.additionalContext`;
    `TeammateIdle` uses a different protocol, so it gets exit code 2 with the same
    text on stderr.
-6. It never traps an agent. The same fingerprint is never blocked twice in a
-   row — an unchanged tree means no fix was attempted — and on re-entry
+6. It never traps an agent. The same fingerprint is never blocked twice for the
+   same agent in a row — an unchanged tree means no fix was attempted — and on re-entry
    (`stop_hook_active`) a second failure becomes a `systemMessage` warning. Either
    way the fingerprint stays unrecorded, so the gate fires again on the next
    change.
@@ -265,7 +265,7 @@ Their scopes do not overlap, so use both.
 - **Not an LLM review.** It operates as the deterministic tier. Judgements about
   intent or conformance to the request belong to `/goal` or a review subagent.
 - **Does not loop forever.** It is deliberately fail-open: the same fingerprint
-  is never blocked twice (no change means no fix was attempted), a second failure
+  is never blocked twice for the same agent (no change means no fix was attempted), a second failure
   on re-entry becomes a warning, and Claude Code stops after eight consecutive
   blocks. In every case the fingerprint stays unrecorded, so the gate runs again
   on the next change.
@@ -282,12 +282,15 @@ $CLAUDE_PLUGIN_DATA/state/<sha16-of-repo-path>.json
 ```
 
 ```json
-{"root": "/home/alice/my-project", "verified": "9f2c…", "blocked": ""}
+{"root": "/home/alice/my-project", "verified": "9f2c…", "blocked": {"<session>/<agent>": "9f2c…"}}
 ```
 
-`verified` is the fingerprint recorded the last time the gate passed; `blocked` is
-the fingerprint of the last block, so the same state is never blocked twice.
-Delete the file to force the gate to run on the next turn.
+`verified` is the fingerprint recorded the last time the gate passed and is shared by every
+session in the worktree (same files, same verdict). `blocked` maps a scope — the session, the
+subagent (`session/agent_id`) or the teammate (`session/teammate_name`) that received the
+feedback — to the fingerprint it was blocked at, so the same agent is never blocked twice at
+the same state while other agents still get the feedback once. It is cleared on every pass
+and capped at 64 scopes. Delete the file to force the gate to run on the next turn.
 
 ## Troubleshooting
 
@@ -348,10 +351,10 @@ whole run takes about 1.5–3 minutes) with a per-file score ratchet in `tests/m
 ## Limitations
 
 - Requires a git repository.
-- One recorded fingerprint per repository, so concurrent sessions in the same
-  worktree share it.
 - `hookSpecificOutput.additionalContext` on `Stop` needs a recent Claude Code; on
   older versions the feedback is ignored and the turn ends unverified.
+- Claude Code ends the turn on its own after 8 consecutive Stop-hook blocks. The gate never
+  gets there: a second failure at the same fingerprint is let through with a warning.
 
 ## License
 

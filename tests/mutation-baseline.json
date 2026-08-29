@@ -21,14 +21,14 @@
       "total": 95
     },
     "hooks/lib/state.py": {
-      "score": 92.9,
-      "killed": 130,
-      "total": 140
+      "score": 90.9,
+      "killed": 210,
+      "total": 231
     },
     "hooks/lib/status.py": {
       "score": 98.2,
-      "killed": 546,
-      "total": 556
+      "killed": 547,
+      "total": 557
     }
   }
 }

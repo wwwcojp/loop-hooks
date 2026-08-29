@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.9.0] - 2026-08-29
+
+### Changed
+- **`blocked` is recorded per agent.** The "never block the same fingerprint twice" rule now
+  keys on the agent that received the feedback — the session for `Stop`, `session/agent_id`
+  for `SubagentStop`, `session/teammate_name` for `TeammateIdle` (`manual` when the hook input
+  has no `session_id`). Concurrent sessions in the same worktree, and sibling subagents in one
+  session, no longer inherit each other's block and pass unverified. `verified` stays shared
+  (same files, same verdict). The record is cleared on every pass and capped at 64 scopes.
+- The state file is written atomically (temp file + rename), so concurrent hooks cannot leave
+  a torn JSON behind.
+- `--status` `blocked` row now counts scopes: `yes (2 agents already blocked at this state)`.
+- Contract goldens carry `session_id` / `agent_id` / `teammate_name` like the real hook input.
+
+### Upgrading
+- **Restart Claude Code after updating.** `hooks/gate.py` changed; hook definitions are a
+  session-start snapshot. The first SessionStart after the restart prints `[loop-hooks 0.9.0]`.
+- The state file's `blocked` field becomes an object on the first block after the update. No
+  manual migration: an old-format string is treated as "not blocked" by 0.9.0, and an object
+  is treated the same way by older plugin versions still running in another session.
+
 ## [0.8.0] - 2026-08-29
 
 ### Added
