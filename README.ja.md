@@ -153,10 +153,16 @@ Claude Code の中から marketplace を登録してプラグインをインス�
 | `gate.on` | いいえ | 3つとも | ゲートするイベント: `stop` / `subagent_stop` / `teammate_idle`。 |
 | `gate.timeout_sec` | いいえ | `600` | 1〜3000 の整数。タイムアウト時はプロセスグループごと落とすので、テストランナーが孤児として残らない。 |
 | `gate.watch` | いいえ | `["*"]` | ゲートを発火させるパス。`watch` を省略すると全ファイルが対象になる。 |
-| `gate.ignore` | いいえ | `["node_modules/*", "*/node_modules/*", ".venv/*", "*/.venv/*", "dist/*", "build/*", "target/*", ".claude/*", ".loop/*", "*.md"]` | `watch` より優先。 |
+| `gate.ignore` | いいえ | `["node_modules/", ".venv/", "dist/", "build/", "target/", ".claude/", ".loop/", "*.md"]` | `watch` より優先。 |
 
-パターンはリポジトリ相対パスに対する `fnmatch`。**`*` は `/` もまたぐ**ので、
-`docs/*` は `docs/a/b.md` にも一致する。
+パターンは `.gitignore` と同じ規則で、リポジトリ相対パスに対して照合する:
+
+- `*` と `?` は `/` を跨がない。`**/`、`/**`、`/**/` が跨ぐ。
+- スラッシュを含まないパターン(`*.md`、`node_modules`)は任意の深さに一致。含むもの(`docs/*`、
+  `src/**/*.py`)はリポジトリルート基準。
+- 末尾の `/` はディレクトリ指定で、その配下すべてに一致する(`node_modules/`)。
+- ディレクトリに一致したパターンはその中のすべてにも一致するので、`docs/*` は `docs/a/b.md` も覆う。
+- `!pattern` は同じリストの先行する一致を取り消す。後勝ち。
 
 ファイルはあるが不正な場合(JSON が壊れている、`gate.command` が無い・空、型が違う)は、
 ターンをブロックせず、Stop フックが理由を `systemMessage` で警告してゲートは無効のまま進む。

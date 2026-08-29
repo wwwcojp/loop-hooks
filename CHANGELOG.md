@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.11.0] - 2026-08-29
+
+### Changed
+- **`watch` / `ignore` follow `.gitignore` rules** instead of `fnmatch`: `*` and `?` stay within
+  one directory, `**` crosses directories, a pattern without a slash matches at any depth, a
+  trailing `/` names a directory, and `!pattern` cancels an earlier match (last match wins). A
+  pattern that matches a directory still covers everything inside it, so `docs/*`, `.loop/*` and
+  `skills/**/*.md` keep their meaning.
+- The default `ignore` is now `["node_modules/", ".venv/", "dist/", "build/", "target/",
+  ".claude/", ".loop/", "*.md"]` — directories are ignored at any depth, and the duplicated
+  `*/node_modules/*`-style entries are gone. `dist/`, `build/`, `target/`, `.claude/` and `.loop/`
+  now match at any depth (they were root-only before).
+
+### Upgrading
+- Rewrite patterns that relied on `*` crossing `/`: `src/*.py` (any depth under `src/`) becomes
+  `src/**/*.py`. Patterns like `*.py`, `docs/*`, `.loop/*` and `**/*.md` need no change.
+- The gate may run once on the first turn after the update because the watched set can differ.
+- No restart needed: nothing in `hooks/gate.py` / `hooks/session_start.py` changed.
+
 ## [0.10.0] - 2026-08-29
 
 ### Added

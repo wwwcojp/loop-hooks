@@ -4,9 +4,14 @@ hypothesis のプロファイルもここで選ぶ。
 """
 
 import os
+import sys
+from pathlib import Path
 
 import pytest
 from hypothesis import settings
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from hooks.lib import patterns  # noqa: E402
 
 # spec §2.2: quick/CI は default(25 例)、verify.py all の properties ステージは
 # thorough(300 例)、mutmut が各変異でテストを回すときは MUTANT_UNDER_TEST が付くので
@@ -39,6 +44,9 @@ def pytest_runtest_setup(item):
     """
     if not os.environ.get("MUTANT_UNDER_TEST"):
         return
+    # patterns._compiled の lru_cache は mutmut の stats フェーズ(fork 元)で埋まり、子プロセスに
+    # 引き継がれる。そのままだと変異前の正規表現が返り続け、patterns の変異が見えない(0.11.0)。
+    patterns._compiled.cache_clear()
     fn = getattr(item, "obj", None)
     fn = getattr(fn, "__func__", fn)  # bound method → 元の関数(属性代入は関数側にしかできない)
     current = getattr(fn, "_hypothesis_internal_use_settings", None)

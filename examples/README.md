@@ -48,6 +48,6 @@ for a per-file killed-count baseline that only the runner may raise.
 | `rust-cargo/` | `cargo fmt --check && cargo clippy -q -- -D warnings && cargo test -q` | 600 s timeout for cold builds |
 | `go/` | `gofmt -l . \| (! grep .) && go vet ./... && go test ./...` | `gofmt -l` lists unformatted files; the pipe fails when it prints any |
 
-`watch` and `ignore` are `fnmatch` patterns against repository-relative paths;
-`*` crosses `/`. Omit `on` to gate all three events (`stop`, `subagent_stop`,
+`watch` and `ignore` follow `.gitignore` rules against repository-relative paths (`*`
+stays within one directory, `**` crosses, a trailing `/` names a directory, `!` negates). Omit `on` to gate all three events (`stop`, `subagent_stop`,
 `teammate_idle`). See the top-level README for every field.

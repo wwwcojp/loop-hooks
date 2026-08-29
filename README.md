@@ -164,10 +164,17 @@ To develop the plugin itself, point the marketplace at a local checkout instead:
 | `gate.on` | no | all three | Which events to gate: `stop`, `subagent_stop`, `teammate_idle`. |
 | `gate.timeout_sec` | no | `600` | Integer from 1 to 3000. On timeout the whole process group is killed, so no orphaned test runners. |
 | `gate.watch` | no | `["*"]` | Paths that make the gate fire. Omitting `watch` means every file is watched. |
-| `gate.ignore` | no | `["node_modules/*", "*/node_modules/*", ".venv/*", "*/.venv/*", "dist/*", "build/*", "target/*", ".claude/*", ".loop/*", "*.md"]` | Wins over `watch`. |
+| `gate.ignore` | no | `["node_modules/", ".venv/", "dist/", "build/", "target/", ".claude/", ".loop/", "*.md"]` | Wins over `watch`. |
 
-Patterns are `fnmatch` against repository-relative paths. Note that **`*` crosses
-`/`**: `docs/*` also matches `docs/a/b.md`.
+Patterns follow `.gitignore` rules, matched against repository-relative paths:
+
+- `*` and `?` do not cross `/`; `**/`, `/**` and `/**/` do.
+- A pattern without a slash (`*.md`, `node_modules`) matches at any depth; one with a
+  slash (`docs/*`, `src/**/*.py`) is anchored at the repository root.
+- A trailing `/` names a directory and matches everything under it (`node_modules/`).
+- A pattern that matches a directory also matches everything inside it, so `docs/*`
+  still covers `docs/a/b.md`.
+- `!pattern` cancels an earlier match in the same list; the last match wins.
 
 If the file is present but invalid (bad JSON, missing or empty `gate.command`,
 wrong types), the gate stays disabled and the Stop hook emits a `systemMessage`

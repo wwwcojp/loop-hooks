@@ -43,6 +43,12 @@ from hooks.lib import patterns  # noqa: E402
         ("abc/**", "abc", False),
         ("a/**/b", "a/b", True),
         ("a/**/b", "a/x/y/b", True),
+        ("a**b", "axyb", True),  # セグメント途中の ** は * と同じ
+        ("a**b", "a/b", False),
+        ("a/**b", "a/xb", True),  # /** の直後に文字が続けば末尾扱いしない
+        ("a/**b", "a/x/b", False),
+        ("x**/y", "x/y", True),  # 先頭でも / 直後でもない **/ は * と同じ
+        ("x**/y", "x/a/y", False),
         # 末尾 / = ディレクトリ指定(配下が必要)
         ("node_modules/", "a/b/node_modules/x.js", True),
         ("node_modules/", "node_modules", False),
@@ -57,6 +63,11 @@ from hooks.lib import patterns  # noqa: E402
         ("[", "x", False),
         # エスケープ・空
         ("\\!x", "!x", True),
+        ("a\\*b", "a*b", True),  # \\ で glob 文字をリテラルに
+        ("a\\*b", "axb", False),
+        ("a\\?", "a?", True),
+        ("a\\?", "ab", False),
+        ("a\\", "a\\", True),  # 末尾の \\ 単体はリテラル
         ("*tsconfig*.json", "tsconfig.build.json", True),
         ("", "a", False),
         ("/", "a", False),
