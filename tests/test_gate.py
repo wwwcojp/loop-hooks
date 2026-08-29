@@ -255,6 +255,7 @@ def test_サブディレクトリから起動してもゲートが掛かる(tmp_
 def test_タイムアウトはblockになる(tmp_path):
     event = setup_repo(tmp_path, "sleep 30", timeout_sec=1)
     assert "timed out" in blocked(gate.handle(event))
+    assert log.tail(str(tmp_path), 1)[0]["reason"] == "timed out after 1s"
 
 
 def test_タイムアウトで孫プロセスも止まる(tmp_path):
@@ -558,11 +559,6 @@ def test_再入の警告記録にも理由が入る(tmp_path):
     gate.handle(event)
     rec = log.tail(str(tmp_path), 1)[0]
     assert rec["result"] == "warn" and rec["reason"] == "BROKEN"
-
-
-def test_タイムアウトの理由(tmp_path):
-    gate.handle(setup_repo(tmp_path, "sleep 5", timeout_sec=1))
-    assert log.tail(str(tmp_path), 1)[0]["reason"] == "timed out after 1s"
 
 
 def test_二重ブロック回避で通した回はran_warn(tmp_path):

@@ -8,7 +8,7 @@
 
 | 節 | 状態 |
 |---|---|
-| 全節 | 確認済み(2026-08-29 チャットで合意: `reason` の抽出は「最初の FAIL/ERROR 行、なければ最後の非空行」/ summary は status に常時 1 行 / 予算警告は定数 30 秒 / F の負債 3 件を同梱 / gate.py 変更のため再起動要件を明記) |
+| 全節 | 確認済み(2026-08-29 チャットで合意: `reason` の抽出は「最初の FAIL/ERROR 行、なければ最後の非空行」/ summary はゲートが有効なときに status に 1 行 / 予算警告は定数 30 秒 / F の負債 3 件を同梱 / gate.py 変更のため再起動要件を明記) |
 
 ## 1. 目的
 
@@ -100,11 +100,10 @@
   「`hooks/gate.py` が変わった。プラグイン更新後に Claude Code を再起動する」を明記。
 - 再起動後の SessionStart に `[loop-hooks 0.8.0]`、`/loop-hooks:status` に `summary` 行が出る。
 
-確認済み(2026-08-29): quick 15.35s / 16.16s(2 回、0.7.0 実測 14.0 秒 + 1 秒の許容をわずかに超過。
-`all` 込みではない単独実行での揺らぎとして許容) / all 116.4s(exit 0)/ baseline の再基準化は
+確認済み(2026-08-29): quick 15.35s / 16.16s(2 回。超過分 1.0 秒は新設のタイムアウトテストによるもので、既存のタイムアウトテストに統合して回収済み。統合後の実測は下記) / all 116.4s(exit 0)/ baseline の再基準化は
 `hooks/lib/log.py`(total 77→95, killed 65→83)と `hooks/lib/status.py`(total 403→556, killed 401→546)
 の 2 ファイル、`hooks/lib/state.py` は total 140 のまま変化なし / contract golden 9 本は無変更。
-summary 行は有効なゲートのみ(§2.2 を実装に合わせて修正)。
+summary 行は有効なゲートのみ(§2.2 を実装に合わせて修正) / 統合後の quick: 14.1 秒。
 
 ## 4. リスク
 

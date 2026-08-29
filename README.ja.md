@@ -284,7 +284,7 @@ $CLAUDE_PLUGIN_DATA/state/<リポジトリパスのsha16>.json
 最後。`--status` は読んだ置き場を `records` 行に表示する。ターミナルから(`CLAUDE_PLUGIN_DATA`
 無しで)実行した場合は `~/.claude/plugins/data/loop-hooks-*/` を探し、無ければ
 `~/.cache/loop-hooks/state/` を読む。失敗した実行は理由(出力の失敗行)を記録し、status の
-出力はゲートの実行・成功・失敗の回数と所要時間の集計から始まる。
+出力にはゲートの実行・成功・失敗の回数と所要時間の集計の行が含まれる。
 
 ## 手動スモーク
 
