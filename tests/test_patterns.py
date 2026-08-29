@@ -72,6 +72,10 @@ from hooks.lib import patterns  # noqa: E402
         ("[!ab].py", "a.py", False),
         ("[!ab].py", "c.py", True),
         ("a[!x]bc", "a/bc", False),  # 否定クラスは / に一致しない(git と同じ)
+        ("a[/]b", "a/b", False),  # 正のクラスも / に一致しない(git と同じ、0.11.1)
+        ("a[.-0]b", "a/b", False),
+        ("a[/]b", "a[/]b", False),  # クラスはクラスのまま(リテラルに落ちない)
+        ("[/x]", "x", True),
         ("[!]", "[!]", True),  # 閉じない [! はリテラル
         ("[!]]", "a", True),  # ] を含む否定クラス
         ("[z-a]", "[z-a]", True),  # 不正な範囲は re.error → リテラル
