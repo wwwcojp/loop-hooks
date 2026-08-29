@@ -1,9 +1,8 @@
 """watch / ignore のパターンマッチ。gitignore(gitwildmatch)と同じ規則。
 
-対象は「リポジトリ相対のファイルパス」の列なので、パターンが途中のディレクトリに一致したら
-配下すべてに一致させる(git がディレクトリを除外すると配下を見ないのと同じ)。
-
-- `*` は `/` を跨がない。`**` は直後が `/` か末尾なら跨ぐ(git と同じ。直前は問わない)。
+対象は「リポジトリ相対のファイルパス」の列。ディレクトリに一致したら配下すべてに一致させる。
+- `*` は `/` を跨がない。`**` は直後が `/` か末尾で、それより前に glob 文字が無いか直前が
+  `/` のとき跨ぐ(git と同じ)。
 - 末尾以外にスラッシュが無ければ任意の深さの basename に一致。あればルート基準。
 - 末尾 `/` はディレクトリ指定(配下が必要)。先頭 `!` は否定(後勝ち)。`\\!` はリテラル。
 - 不正なパターンは例外にせずリテラル扱い。
@@ -15,8 +14,6 @@ import re
 import warnings
 from functools import lru_cache
 
-CACHE_SIZE = 64
-
 
 def _glob_to_regex(body: str) -> str:
     out: list[str] = []
@@ -26,15 +23,19 @@ def _glob_to_regex(body: str) -> str:
         if c == "*":
             if body.startswith("**", i):
                 after = body[i + 2] if i + 2 < n else ""
-                if after == "/":
-                    out.append("(?:.*/)?")  # **/ と /**/
-                    i += 3
-                    continue
-                if after == "":
-                    out.append(".*")  # ** 末尾
-                    i += 2
-                    continue
-                i += 2  # 文字が続く ** は * と同じ
+                prev = body[i - 1] if i else ""
+                # git は literal 接頭辞を剥がして照合する: `**` より前に glob 文字があると跨がない
+                if prev in ("", "/") or not any(g in body[:i] for g in "*?[\\"):
+                    if after == "/":
+                        if not out or out[-1] != "(?:.*/)?":  # 連続する **/ は 1 つに
+                            out.append("(?:.*/)?")
+                        i += 3
+                        continue
+                    if after == "":
+                        out.append(".*")
+                        i += 2
+                        continue
+                i += 2  # それ以外の ** は * と同じ
             else:
                 i += 1
             if not out or out[-1] != "[^/]*":  # 連続する * は 1 つに(バックトラック爆発を防ぐ)
@@ -85,7 +86,7 @@ def _translate(pattern: str) -> tuple[bool, re.Pattern[str] | None]:
         return negated, re.compile("^" + prefix + re.escape(pattern) + suffix)
 
 
-@lru_cache(maxsize=CACHE_SIZE)
+@lru_cache(maxsize=64)
 def _compiled(patterns: tuple[str, ...]) -> tuple[tuple[bool, re.Pattern[str] | None], ...]:
     return tuple(_translate(p) for p in patterns)
 

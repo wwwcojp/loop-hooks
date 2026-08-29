@@ -1,8 +1,8 @@
 {
   "files": {
     "hooks/lib/config.py": {
-      "score": 93.5,
-      "killed": 144,
+      "score": 94.2,
+      "killed": 145,
       "total": 154
     },
     "hooks/lib/fingerprint.py": {
@@ -21,9 +21,9 @@
       "total": 95
     },
     "hooks/lib/patterns.py": {
-      "score": 81.0,
-      "killed": 145,
-      "total": 179
+      "score": 79.7,
+      "killed": 157,
+      "total": 197
     },
     "hooks/lib/state.py": {
       "score": 90.9,

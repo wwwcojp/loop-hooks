@@ -168,7 +168,8 @@ To develop the plugin itself, point the marketplace at a local checkout instead:
 
 Patterns follow `.gitignore` rules, matched against repository-relative paths:
 
-- `*` and `?` do not cross `/`; `**/`, `/**` and `/**/` do.
+- `*` and `?` do not cross `/`. `**` crosses when it is followed by `/` or ends the
+  pattern and no glob character comes before it (`**/x`, `x/**`, `x**/y`).
 - A pattern without a slash (`*.md`, `node_modules`) matches at any depth; one with a
   slash (`docs/*`, `src/**/*.py`) is anchored at the repository root.
 - A trailing `/` names a directory and matches everything under it (`node_modules/`). A

@@ -51,6 +51,12 @@ from hooks.lib import patterns  # noqa: E402
         ("x**/y", "x/a/y", True),
         ("a**/b", "a/b", True),
         ("x**", "x/a/b", True),
+        ("[ab]**/y", "ay", False),  # ** より前に glob 文字があると跨がない(git と同じ)
+        ("[ab]**/y", "a/x/y", False),
+        ("*/b**/c", "a/b/x/c", False),
+        ("[ab]**", "a/q", True),  # [ab]** は a に一致し配下へ伝播
+        ("**/**/x", "a/b/x", True),
+        ("x**y", "x/y", False),
         # 末尾 / = ディレクトリ指定(配下が必要)
         ("node_modules/", "a/b/node_modules/x.js", True),
         ("node_modules/", "node_modules", False),
@@ -99,6 +105,7 @@ def test_連続する星でバックトラックが爆発しない():
 
     t = time.perf_counter()
     assert patterns.matches("a" + "x" * 40, ["a" + "*" * 16 + "b"]) is False
+    assert patterns.matches("a/b/c/d/e/f/zx", ["**/" * 20 + "zz"]) is False
     assert time.perf_counter() - t < 0.1
 
 
