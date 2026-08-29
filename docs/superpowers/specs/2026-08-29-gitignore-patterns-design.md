@@ -87,7 +87,9 @@ def matches(rel: str, patterns: list[str]) -> bool:
 | `src/*.py` | `src/` 配下の任意の深さ | `src/` 直下のみ → **`src/**/*.py` に書き換える** |
 | `*tsconfig*.json` | 同じ | 同じ |
 
-自リポジトリの `.loop-hooks.json`、`examples/*/.loop-hooks.json`、README の設定例は書き換え不要。
+自リポジトリの `.loop-hooks.json` と README の設定例は書き換え不要。`examples/*/.loop-hooks.json` は
+`*/node_modules/*` 型の重複を `node_modules/` 1 つに書き換える(最終レビューで判明: 旧形では
+`packages/a/node_modules/` が ignore から外れる)。
 更新後の最初のターンで fingerprint の対象集合が変わりうるため、ゲートが 1 回走ることがある(無害)。
 
 ### 2.4 変更しないもの

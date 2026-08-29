@@ -171,7 +171,8 @@ Patterns follow `.gitignore` rules, matched against repository-relative paths:
 - `*` and `?` do not cross `/`; `**/`, `/**` and `/**/` do.
 - A pattern without a slash (`*.md`, `node_modules`) matches at any depth; one with a
   slash (`docs/*`, `src/**/*.py`) is anchored at the repository root.
-- A trailing `/` names a directory and matches everything under it (`node_modules/`).
+- A trailing `/` names a directory and matches everything under it (`node_modules/`). A
+  trailing slash alone does not anchor: `node_modules/` still matches at any depth.
 - A pattern that matches a directory also matches everything inside it, so `docs/*`
   still covers `docs/a/b.md`.
 - `!pattern` cancels an earlier match in the same list; the last match wins.

@@ -12,6 +12,8 @@
   ".claude/", ".loop/", "*.md"]` — directories are ignored at any depth, and the duplicated
   `*/node_modules/*`-style entries are gone. `dist/`, `build/`, `target/`, `.claude/` and `.loop/`
   now match at any depth (they were root-only before).
+- `examples/*/.loop-hooks.json` use the new idiom (`node_modules/`, `.venv/`, `target/`, `vendor/`)
+  instead of `x/*` + `*/x/*` pairs, which under the new rules would only match one level deep.
 
 ### Upgrading
 - Rewrite patterns that relied on `*` crossing `/`: `src/*.py` (any depth under `src/`) becomes

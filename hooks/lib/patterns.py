@@ -3,7 +3,7 @@
 対象は「リポジトリ相対のファイルパス」の列なので、パターンが途中のディレクトリに一致したら
 配下すべてに一致させる(git がディレクトリを除外すると配下を見ないのと同じ)。
 
-- `*` は `/` を跨がない。`**/` `/**` `/**/` が跨ぐ。
+- `*` は `/` を跨がない。`**` は直後が `/` か末尾なら跨ぐ(git と同じ。直前は問わない)。
 - 末尾以外にスラッシュが無ければ任意の深さの basename に一致。あればルート基準。
 - 末尾 `/` はディレクトリ指定(配下が必要)。先頭 `!` は否定(後勝ち)。`\\!` はリテラル。
 - 不正なパターンは例外にせずリテラル扱い。
@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import re
+import warnings
 from functools import lru_cache
 
 CACHE_SIZE = 64
@@ -24,33 +25,32 @@ def _glob_to_regex(body: str) -> str:
         c = body[i]
         if c == "*":
             if body.startswith("**", i):
-                before = body[i - 1] if i else ""
                 after = body[i + 2] if i + 2 < n else ""
-                if before in ("", "/") and after == "/":
+                if after == "/":
                     out.append("(?:.*/)?")  # **/ と /**/
                     i += 3
                     continue
-                if before in ("", "/") and after == "":
-                    out.append(".*")  # /** 末尾
+                if after == "":
+                    out.append(".*")  # ** 末尾
                     i += 2
                     continue
-                out.append("[^/]*")  # セグメント途中の ** は * と同じ
-                i += 2
-                continue
-            out.append("[^/]*")
-            i += 1
+                i += 2  # 文字が続く ** は * と同じ
+            else:
+                i += 1
+            if not out or out[-1] != "[^/]*":  # 連続する * は 1 つに(バックトラック爆発を防ぐ)
+                out.append("[^/]*")
         elif c == "?":
             out.append("[^/]")
             i += 1
         elif c == "[":
-            j = body.find("]", i + 2)  # "[]" "[!]" は閉じていないとみなす
+            j = body.find("]", i + 3 if body.startswith("[!", i) else i + 2)  # "[]" "[!]" は未閉
             if j == -1:
                 out.append(re.escape(c))
                 i += 1
             else:
                 cls = body[i + 1 : j]
                 if cls.startswith("!"):
-                    cls = "^" + cls[1:]
+                    cls = "^" + cls[1:] + "/"  # git と同じく否定クラスは / に一致しない
                 out.append("[" + cls.replace("\\", "\\\\") + "]")
                 i = j + 1
         elif c == "\\" and i + 1 < n:
@@ -78,8 +78,10 @@ def _translate(pattern: str) -> tuple[bool, re.Pattern[str] | None]:
     prefix = "" if anchored else "(?:.*/)?"
     suffix = "/.*$" if dir_only else "(?:/.*)?$"
     try:
-        return negated, re.compile("^" + prefix + _glob_to_regex(pattern) + suffix)
-    except re.error:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")  # "[[a]" の FutureWarning も literal 扱いに倒す
+            return negated, re.compile("^" + prefix + _glob_to_regex(pattern) + suffix)
+    except Exception:
         return negated, re.compile("^" + prefix + re.escape(pattern) + suffix)
 
 

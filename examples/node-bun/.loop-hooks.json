@@ -3,6 +3,6 @@
     "command": "bun run lint && bun test",
     "timeout_sec": 300,
     "watch": ["*.ts", "*.tsx", "package.json", "*tsconfig*.json"],
-    "ignore": ["node_modules/*", "*/node_modules/*", "dist/*"]
+    "ignore": ["node_modules/", "dist/"]
   }
 }

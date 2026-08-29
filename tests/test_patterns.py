@@ -47,8 +47,10 @@ from hooks.lib import patterns  # noqa: E402
         ("a**b", "a/b", False),
         ("a/**b", "a/xb", True),  # /** の直後に文字が続けば末尾扱いしない
         ("a/**b", "a/x/b", False),
-        ("x**/y", "x/y", True),  # 先頭でも / 直後でもない **/ は * と同じ
-        ("x**/y", "x/a/y", False),
+        ("x**/y", "x/y", True),  # git と同じく **/ は直前を問わず跨ぐ
+        ("x**/y", "x/a/y", True),
+        ("a**/b", "a/b", True),
+        ("x**", "x/a/b", True),
         # 末尾 / = ディレクトリ指定(配下が必要)
         ("node_modules/", "a/b/node_modules/x.js", True),
         ("node_modules/", "node_modules", False),
@@ -59,6 +61,14 @@ from hooks.lib import patterns  # noqa: E402
         ("[ab].py", "a.py", True),
         ("[!ab].py", "a.py", False),
         ("[!ab].py", "c.py", True),
+        ("a[!x]bc", "a/bc", False),  # 否定クラスは / に一致しない(git と同じ)
+        ("[!]", "[!]", True),  # 閉じない [! はリテラル
+        ("[!]]", "a", True),  # ] を含む否定クラス
+        ("[z-a]", "[z-a]", True),  # 不正な範囲は re.error → リテラル
+        ("[z-a]", "a", False),
+        ("[[a]", "[[a]", True),  # FutureWarning(nested set)もリテラル扱い
+        ("a***b", "axb", True),
+        ("a***b", "a/b", False),
         ("[", "[", True),  # 閉じない [ はリテラル
         ("[", "x", False),
         # エスケープ・空
@@ -82,6 +92,22 @@ def test_否定は後勝ち():
     assert patterns.matches("b.md", ["*.md", "!a.md"]) is True
     assert patterns.matches("a.md", ["!a.md", "*.md"]) is True
     assert patterns.matches("a.md", ["!a.md"]) is False
+
+
+def test_連続する星でバックトラックが爆発しない():
+    import time
+
+    t = time.perf_counter()
+    assert patterns.matches("a" + "x" * 40, ["a" + "*" * 16 + "b"]) is False
+    assert time.perf_counter() - t < 0.1
+
+
+def test_警告を出す文字クラスでも例外にも警告にもならない():
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert patterns.matches("[[a]", ["[[a]"]) is True
 
 
 def test_空のリストは何にも一致しない():

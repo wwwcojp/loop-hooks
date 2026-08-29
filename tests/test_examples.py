@@ -173,14 +173,14 @@ EXPECTED_COMMANDS = {
 # (timeout_sec, watch, ignore) — config.load() は gate に既にあるキーを上書きするだけなので
 # (hooks/lib/config.py の _validate: merged.update(gate))、ここは JSON の生の値と一致する。
 EXPECTED_GATE = {
-    "python-uv": (300, ["*.py", "pyproject.toml"], [".venv/*", "*/.venv/*", ".hypothesis/*"]),
+    "python-uv": (300, ["*.py", "pyproject.toml"], [".venv/", ".hypothesis/"]),
     "node-bun": (
         300,
         ["*.ts", "*.tsx", "package.json", "*tsconfig*.json"],
-        ["node_modules/*", "*/node_modules/*", "dist/*"],
+        ["node_modules/", "dist/"],
     ),
-    "rust-cargo": (600, ["*.rs", "Cargo.toml", "Cargo.lock"], ["target/*"]),
-    "go": (300, ["*.go", "go.mod", "go.sum"], ["vendor/*"]),
+    "rust-cargo": (600, ["*.rs", "Cargo.toml", "Cargo.lock"], ["target/"]),
+    "go": (300, ["*.go", "go.mod", "go.sum"], ["vendor/"]),
 }
 
 
