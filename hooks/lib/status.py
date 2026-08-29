@@ -93,7 +93,7 @@ def collect(cwd: str) -> dict[str, Any]:
         verified=verified,
         # gate と同じ: 指紋が取れなければ走る側に倒す
         will_run=current is None or current != verified,
-        blocked=key == state.read_blocked(root),
+        blocked=state.read_blocked_scopes(root, key),
     )
     return info
 
@@ -130,7 +130,8 @@ def render(info: dict[str, Any]) -> str:
     else:
         lines.append(_row("state", "unchanged since last pass -> gate will not run"))
     if info["blocked"] is not None:
-        blocked_text = "yes (this state was already blocked once)" if info["blocked"] else "no"
+        n = info["blocked"]
+        blocked_text = f"yes ({n} agents already blocked at this state)" if n else "no"
         lines.append(_row("blocked", blocked_text))
     lines.append(_row("records", info["state_dir"]))
     lines.append(_row("summary", _format_summary(info["summary"])))

@@ -88,18 +88,19 @@ def _refuse(
 ) -> dict[str, Any]:
     """検証に失敗したときの応答。イベントごとに形式が違う。
 
-    同じフィンガープリントは2度ブロックしない。フィンガープリントが同じなら
-    エージェントは何も直していないので、再ブロックしても同じ失敗を繰り返すだけ
-    になる。この規則は stop_hook_active に依存しないため、そのフラグが伝播しない
-    状況や、TeammateIdle のようにフラグ自体が無いイベントでも閉じ込めない。
-    フィンガープリントが取れない場合は固定キーで同じ規則を適用する。
+    同じエージェントに同じフィンガープリントは2度ブロックしない(0.9.0: 記録は session /
+    agent / teammate のスコープ別)。フィンガープリントが同じならエージェントは何も直して
+    いないので、再ブロックしても同じ失敗を繰り返すだけになる。この規則は stop_hook_active
+    に依存しないため、そのフラグが伝播しない状況や、TeammateIdle のようにフラグ自体が無い
+    イベントでも閉じ込めない。フィンガープリントが取れない場合は固定キーで同じ規則を適用する。
     """
     if event.get("stop_hook_active"):
         return {"systemMessage": WARN + detail}
     key = current if current is not None else state.FP_UNAVAILABLE_KEY
-    if key == state.read_blocked(root):
+    scope = state.scope(event)
+    if key == state.read_blocked(root, scope):
         return {"systemMessage": WARN + detail}
-    state.write_blocked(root, key)
+    state.write_blocked(root, scope, key)
     if hook_event == "TeammateIdle":
         # teammate は JSON では止められない(continue:false は teammate 自体を終わらせる)
         return {"_exit_code": 2, "_stderr": FEEDBACK + detail}
@@ -148,7 +149,7 @@ def handle(event: dict[str, Any]) -> dict[str, Any] | None:
         verified = fingerprint.compute(root, gate_cfg)
         if verified is not None:
             state.write_verified(root, verified)
-        state.write_blocked(root, "")  # 直ったのでブロック記録を無効化
+        state.clear_blocked(root)  # 直ったので全スコープのブロック記録を無効化
         out: dict[str, Any] = {}
         rec["result"] = "pass"
     else:

@@ -68,13 +68,14 @@ def test_有効で検証済みならwill_runでない(tmp_path):
     assert "unchanged since last pass" in status.render(info)
 
 
-def test_blockedは現在の指紋と一致するときだけ真(tmp_path):
+def test_blockedは現在の指紋でブロック済みのスコープ数(tmp_path):
     r = repo(tmp_path)
     fp = fingerprint.compute(str(r), GATE)
-    state.write_blocked(str(r), fp)
-    assert status.collect(str(r))["blocked"] is True
+    state.write_blocked(str(r), "s1", fp)
+    state.write_blocked(str(r), "s1/a", fp)
+    assert status.collect(str(r))["blocked"] == 2
     (r / "b.ts").write_text("y\n", encoding="utf-8")
-    assert status.collect(str(r))["blocked"] is False
+    assert status.collect(str(r))["blocked"] == 0
 
 
 def test_未コミット設定の通知が載る(tmp_path):
@@ -281,9 +282,10 @@ def test_検証済みのstate行の文言が固定(tmp_path):
 def test_blockedがyesのときの文言が固定(tmp_path):
     r = repo(tmp_path)
     fp = fingerprint.compute(str(r), GATE)
-    state.write_blocked(str(r), fp)
+    state.write_blocked(str(r), "s1", fp)
+    state.write_blocked(str(r), "s2", fp)
     out = status.render(status.collect(str(r)))
-    assert "  blocked   yes (this state was already blocked once)" in out.splitlines()
+    assert "  blocked   yes (2 agents already blocked at this state)" in out.splitlines()
 
 
 def test_設定エラーの行が丸ごと固定(tmp_path):

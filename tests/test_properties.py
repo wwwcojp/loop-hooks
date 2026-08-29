@@ -186,13 +186,35 @@ _fp_text = st.text(alphabet=st.characters(blacklist_characters="\x00"), max_size
 def test_P6a_書いた値がそのまま読め互いに干渉しない(verified: str, blocked: str, noticed: str):
     root = _root()
     state.write_verified(root, verified)
-    state.write_blocked(root, blocked)
+    state.write_blocked(root, "s", blocked)
     state.write_noticed(root, noticed)
     assert state.read_verified(root) == verified
-    assert state.read_blocked(root) == blocked
+    assert state.read_blocked(root, "s") == blocked
     assert state.read_noticed(root) == noticed
     # 置き場を決めるキーは固定長 16(sha256 の先頭 16 桁): 長さがずれると衝突しやすくなる
     assert len(state.key(root)) == 16
+
+
+# ---- P7: blocked のスコープは互いに干渉しない(上限内) ----
+
+_scope_text = st.text(alphabet=st.characters(blacklist_characters="\x00"), min_size=1, max_size=32)
+
+
+@settings(deadline=None)
+@given(
+    writes=st.lists(st.tuples(_scope_text, _fp_text), min_size=1, max_size=state.BLOCKED_MAX_SCOPES)
+)
+def test_P7_他スコープの書込は自スコープの読取値を変えない(writes: list[tuple[str, str]]):
+    root = _root()
+    for scope, fp in writes:
+        state.write_blocked(root, scope, fp)
+    last: dict[str, str] = {}
+    for scope, fp in writes:
+        last[scope] = fp  # 同じ scope は最後の書込が勝つ
+    for scope, fp in last.items():
+        assert state.read_blocked(root, scope) == fp
+    for fp in {v for v in last.values()}:
+        assert state.read_blocked_scopes(root, fp) == sum(1 for v in last.values() if v == fp)
 
 
 @settings(deadline=None)
@@ -203,7 +225,7 @@ def test_P6b_壊れた状態ファイルは例外を出さずNone(data: bytes):
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_bytes(data)
     assert state.read_verified(root) is None or isinstance(state.read_verified(root), str)
-    assert state.read_blocked(root) is None or isinstance(state.read_blocked(root), str)
+    assert state.read_blocked(root, "s") is None or isinstance(state.read_blocked(root, "s"), str)
 
 
 # ---- P3: compute は決定的で、watch 外の変更に不変、watch 内の変更に敏感 ----

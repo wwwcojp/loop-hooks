@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from hooks.lib import state  # noqa: E402
 
@@ -74,23 +76,90 @@ def test_verifiedが文字列でなければNone(tmp_path, monkeypatch):
     assert state.read_verified(REPO) is None
 
 
-# --- TeammateIdle 用の「一度だけブロックする」ガード ---
+# --- ブロック記録(0.9.0: エージェント単位のスコープ) ---
+
+
+@pytest.mark.parametrize(
+    ("event", "expected"),
+    [
+        ({"hook_event_name": "Stop", "cwd": "/x"}, "manual"),
+        ({"hook_event_name": "Stop", "cwd": "/x", "session_id": 123}, "manual"),
+        ({"hook_event_name": "Stop", "cwd": "/x", "session_id": "s1"}, "s1"),
+        ({"hook_event_name": "SubagentStop", "session_id": "s1", "agent_id": "a1"}, "s1/a1"),
+        ({"hook_event_name": "SubagentStop", "session_id": "s1"}, "s1"),
+        ({"hook_event_name": "TeammateIdle", "session_id": "s1", "teammate_name": "w"}, "s1/w"),
+        ({"hook_event_name": "TeammateIdle", "session_id": "s1"}, "s1"),
+        ({"hook_event_name": "Stop", "session_id": "s1", "agent_id": "a1"}, "s1"),
+    ],
+)
+def test_scopeはイベントの識別子から決まる(event, expected):
+    assert state.scope(event) == expected
 
 
 def test_初期状態ではブロック記録が無い():
-    assert state.read_blocked(REPO) is None
+    assert state.read_blocked(REPO, "s1") is None
+    assert state.read_blocked_scopes(REPO, "fp-bad") == 0
 
 
-def test_ブロック記録は書いて読める():
-    state.write_blocked(REPO, "fp-bad")
-    assert state.read_blocked(REPO) == "fp-bad"
+def test_ブロック記録はスコープごとに独立():
+    state.write_blocked(REPO, "s1/a", "fp-bad")
+    assert state.read_blocked(REPO, "s1/a") == "fp-bad"
+    assert state.read_blocked(REPO, "s1/b") is None
+    state.write_blocked(REPO, "s1/b", "fp-bad")
+    assert state.read_blocked_scopes(REPO, "fp-bad") == 2
+    assert state.read_blocked_scopes(REPO, "other") == 0
+
+
+def test_clear_blockedで全スコープが消える():
+    state.write_blocked(REPO, "s1", "fp-bad")
+    state.write_blocked(REPO, "s2", "fp-bad")
+    state.clear_blocked(REPO)
+    assert state.read_blocked(REPO, "s1") is None
+    assert state.read_blocked(REPO, "s2") is None
+    assert state.read_blocked_scopes(REPO, "fp-bad") == 0
 
 
 def test_検証済みとブロックは共存する():
     state.write_verified(REPO, "fp-good")
-    state.write_blocked(REPO, "fp-bad")
+    state.write_blocked(REPO, "s1", "fp-bad")
     assert state.read_verified(REPO) == "fp-good"
-    assert state.read_blocked(REPO) == "fp-bad"
+    assert state.read_blocked(REPO, "s1") == "fp-bad"
+
+
+def test_上限を超えると最古のスコープが落ちる():
+    for i in range(state.BLOCKED_MAX_SCOPES + 1):
+        state.write_blocked(REPO, f"s{i}", "fp")
+    assert state.read_blocked(REPO, "s0") is None
+    assert state.read_blocked(REPO, "s1") == "fp"
+    assert state.read_blocked(REPO, f"s{state.BLOCKED_MAX_SCOPES}") == "fp"
+    assert state.read_blocked_scopes(REPO, "fp") == state.BLOCKED_MAX_SCOPES
+
+
+def test_同じスコープの再書込は最新扱いになる():
+    for i in range(state.BLOCKED_MAX_SCOPES):
+        state.write_blocked(REPO, f"s{i}", "fp")
+    state.write_blocked(REPO, "s0", "fp2")  # s0 を末尾へ
+    state.write_blocked(REPO, "new", "fp")  # 65 件目: 落ちるのは s1
+    assert state.read_blocked(REPO, "s0") == "fp2"
+    assert state.read_blocked(REPO, "s1") is None
+
+
+def test_旧形式の文字列blockedは未ブロック扱い():
+    p = state._path(REPO)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps({"root": REPO, "verified": "v", "blocked": "fp-bad"}), encoding="utf-8")
+    assert state.read_blocked(REPO, "s1") is None
+    assert state.read_blocked_scopes(REPO, "fp-bad") == 0
+    state.write_blocked(REPO, "s1", "fp-bad")  # 次の書込で dict に置き換わる
+    assert json.loads(p.read_text(encoding="utf-8"))["blocked"] == {"s1": "fp-bad"}
+    assert state.read_verified(REPO) == "v"
+
+
+def test_書込は原子的で一時ファイルを残さない():
+    state.write_blocked(REPO, "s1", "fp")
+    state.write_verified(REPO, "v")
+    files = sorted(p.name for p in state._path(REPO).parent.iterdir())
+    assert files == [state._path(REPO).name]
 
 
 def test_書き込めなくても例外を出さない(tmp_path, monkeypatch):

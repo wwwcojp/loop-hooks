@@ -415,10 +415,10 @@ def test_スクリプトはStopの失敗でも終了コード0を返す(tmp_path
 def test_ゲートが通ればブロック記録は無効になる(tmp_path):
     event = teammate(setup_repo(tmp_path, "false"))
     assert blocked(gate.handle(event))
-    assert state.read_blocked(str(tmp_path))
+    assert state.read_blocked(str(tmp_path), state.scope(event))
     write_config(tmp_path, {"gate": {"command": "true", "watch": WATCH, "ignore": IGNORE}})
     assert gate.handle(event) is None
-    assert not state.read_blocked(str(tmp_path))
+    assert not state.read_blocked(str(tmp_path), state.scope(event))
 
 
 # --- 0.2.1: 同じフィンガープリントは2度ブロックしない(全イベント) ---

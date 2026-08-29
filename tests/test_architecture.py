@@ -156,7 +156,7 @@ def _last(root: str) -> dict:
 def test_判定式_未検証ならwill_runでgateはran(tmp_path):
     root = _repo(tmp_path)
     info = status.collect(root)
-    assert info["will_run"] is True and info["blocked"] is False
+    assert info["will_run"] is True and info["blocked"] == 0
     gate.handle(_stop(root))
     assert _last(root)["decision"] == "ran"
 
@@ -193,22 +193,22 @@ def test_判定式_未検証で指紋も取れなければ両方とも走る側�
 
 def test_判定式_blockedは現在の指紋と一致するときだけで再ブロックしない(tmp_path):
     root = _repo(tmp_path, command="false")
-    assert status.collect(root)["blocked"] is False
+    assert status.collect(root)["blocked"] == 0
     out = gate.handle(_stop(root))
     assert out and "hookSpecificOutput" in out and _last(root)["result"] == "fail"
-    assert status.collect(root)["blocked"] is True
+    assert status.collect(root)["blocked"] == 1
     out = gate.handle(_stop(root))
     assert out and "systemMessage" in out and _last(root)["result"] == "warn"
     (tmp_path / "main.ts").write_text("changed\n", encoding="utf-8")
-    assert status.collect(root)["blocked"] is False  # 状態が変わればまたブロックする
+    assert status.collect(root)["blocked"] == 0  # 状態が変わればまたブロックする
 
 
 def test_判定式_指紋が取れないときのblockedはgateの固定キーと同じ(tmp_path, monkeypatch):
     root = _repo(tmp_path, command="false")
     monkeypatch.setattr(fingerprint, "compute", lambda root, gate_cfg: None)
     gate.handle(_stop(root))  # 失敗、"fp-unavailable" でブロック記録
-    assert state.read_blocked(root) == state.FP_UNAVAILABLE_KEY
-    assert status.collect(root)["blocked"] is True
+    assert state.read_blocked(root, state.scope(_stop(root))) == state.FP_UNAVAILABLE_KEY
+    assert status.collect(root)["blocked"] == 1
     out = gate.handle(_stop(root))
     assert out and "systemMessage" in out  # gate も再ブロックしない
 
@@ -267,7 +267,7 @@ def test_書込でリポジトリ内にファイルが増えない(tmp_path, tmp
     before = _files(root)
     for v in (str(root), str(root) + "/", str(root / "sub" / ".."), str(link)):
         state.write_verified(v, "fp")
-        state.write_blocked(v, "fp")
+        state.write_blocked(v, "s", "fp")
         state.write_noticed(v, "n")
         log.append(v, {"event": "Stop", "decision": "skipped"})
     assert _files(root) == before
@@ -302,11 +302,11 @@ def test_書込不能でもstateとlogは例外を出さない(tmp_path, unwrita
     (tmp_path / "r").mkdir()
     root = _repo(tmp_path / "r")
     state.write_verified(root, "fp")
-    state.write_blocked(root, "fp")
+    state.write_blocked(root, "s", "fp")
     state.write_noticed(root, "n")
     log.append(root, {"event": "Stop", "decision": "ran"})
     assert state.read_verified(root) is None
-    assert state.read_blocked(root) is None
+    assert state.read_blocked(root, "s") is None
     assert state.read_noticed(root) is None
     assert log.tail(root, 5) == []
 
