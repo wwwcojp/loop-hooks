@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.10.0] - 2026-08-29
+
+### Added
+- **`examples/`**: a standard-library-only verify runner template (`examples/verify.py` —
+  `quick` / `all` / `--print-ci`, one `[verify] <name>: ok|FAIL` line per check, stops at the
+  first failure) and `.loop-hooks.json` examples for Python (uv), Node (bun), Rust (cargo) and Go,
+  with a three-step setup guide in `examples/README.md`. The template is lint-, format- and
+  type-checked in the gate and CI, and exercised by subprocess tests.
+
+### Upgrading
+- No restart needed: nothing under `hooks/` changed.
+
 ## [0.9.0] - 2026-08-29
 
 ### Changed

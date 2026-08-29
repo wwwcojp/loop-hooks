@@ -1,6 +1,6 @@
 [project]
 name = "loop-hooks"
-version = "0.9.0"
+version = "0.10.0"
 description = "Change-gated verification for Claude Code: run your verify command at end of turn, but only when something actually changed"
 requires-python = ">=3.10"
 
@@ -74,7 +74,7 @@ only_mutate = [
   "hooks/lib/log.py", "hooks/lib/state.py", "hooks/lib/status.py",
 ]
 also_copy = [
-  "scripts", "skills", ".claude-plugin", ".github", "docs",
+  "scripts", "skills", "examples", ".claude-plugin", ".github", "docs",
   "README.md", "README.ja.md", "LICENSE", "CLAUDE.md", "CHANGELOG.md",
   ".loop-hooks.json", "uv.lock", ".gitignore",
 ]

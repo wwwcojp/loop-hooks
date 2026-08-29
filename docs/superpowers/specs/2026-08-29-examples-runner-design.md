@@ -122,6 +122,8 @@ STAGES: dict[str, list[Check]] = {
 - `examples/README.md` の手順どおりに一時リポジトリへ導入し、`uv run hooks/gate.py --status <dir>` で
   `command   uv run python scripts/verify.py quick` が表示される(手動確認、spec に記録)。
 
+確認済み(2026-08-29): 一時リポジトリに examples/verify.py と python-uv/.loop-hooks.json を導入し、--status の command 行が uv run python scripts/verify.py quick と表示された。
+
 ## 4. リスク
 
 | リスク | 対処 |
