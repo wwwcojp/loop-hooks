@@ -57,6 +57,10 @@ from hooks.lib import patterns  # noqa: E402
         ("[ab]**", "a/q", True),  # [ab]** は a に一致し配下へ伝播
         ("**/**/x", "a/b/x", True),
         ("x**y", "x/y", False),
+        ("***/y", "a/b/y", True),  # 3 連以上の * も 1 つの ** として扱う(git と同じ)
+        ("a/***/b", "a/b", True),
+        ("x***", "x/a/b", True),
+        ("****/*", "a", True),
         # 末尾 / = ディレクトリ指定(配下が必要)
         ("node_modules/", "a/b/node_modules/x.js", True),
         ("node_modules/", "node_modules", False),

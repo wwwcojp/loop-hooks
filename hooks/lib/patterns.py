@@ -21,23 +21,23 @@ def _glob_to_regex(body: str) -> str:
     while i < n:
         c = body[i]
         if c == "*":
-            if body.startswith("**", i):
-                after = body[i + 2] if i + 2 < n else ""
-                prev = body[i - 1] if i else ""
-                # git は literal 接頭辞を剥がして照合する: `**` より前に glob 文字があると跨がない
-                if prev in ("", "/") or not any(g in body[:i] for g in "*?[\\"):
-                    if after == "/":
-                        if not out or out[-1] != "(?:.*/)?":  # 連続する **/ は 1 つに
-                            out.append("(?:.*/)?")
-                        i += 3
-                        continue
-                    if after == "":
-                        out.append(".*")
-                        i += 2
-                        continue
-                i += 2  # それ以外の ** は * と同じ
-            else:
-                i += 1
+            j = i
+            while j < n and body[j] == "*":
+                j += 1  # git は連続する * を 1 つの ** として扱う
+            after = body[j] if j < n else ""
+            prev = body[i - 1] if i else ""
+            # git は literal 接頭辞を剥がして照合する: `**` より前に glob 文字があると跨がない
+            cross = j - i > 1 and (prev in ("", "/") or not any(g in body[:i] for g in "*?[\\"))
+            if cross and after == "/":
+                if not out or out[-1] != "(?:.*/)?":  # 連続する **/ は 1 つに
+                    out.append("(?:.*/)?")
+                i = j + 1
+                continue
+            if cross and after == "":
+                out.append(".*")
+                i = j
+                continue
+            i = j
             if not out or out[-1] != "[^/]*":  # 連続する * は 1 つに(バックトラック爆発を防ぐ)
                 out.append("[^/]*")
         elif c == "?":
