@@ -162,6 +162,19 @@ def test_書込は原子的で一時ファイルを残さない():
     assert files == [state._path(REPO).name]
 
 
+def test_書込に失敗しても一時ファイルを残さない(monkeypatch):
+    state.write_blocked(REPO, "s1", "fp")  # 置き場を作る
+
+    def boom(*args: object, **kwargs: object) -> None:
+        raise OSError("replace failed")
+
+    monkeypatch.setattr(state.os, "replace", boom)
+    state.write_blocked(REPO, "s2", "fp")  # 握られて例外は出ない
+    files = sorted(p.name for p in state._path(REPO).parent.iterdir())
+    assert files == [state._path(REPO).name]
+    assert state.read_blocked(REPO, "s2") is None  # 書けていない
+
+
 def test_書き込めなくても例外を出さない(tmp_path, monkeypatch):
     """0.3.1: lib は例外を外に出さない。状態が書けない環境でもゲートは動く。"""
     blocked_dir = tmp_path / "file-not-dir"
