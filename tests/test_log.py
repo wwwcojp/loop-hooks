@@ -173,3 +173,59 @@ def test_切詰めは一時ファイル経由で差し替える(monkeypatch):
     assert not log._path(root).with_suffix(".jsonl.tmp").exists()
     recs = log.tail(root, log.KEEP_LINES + 10)
     assert len(recs) == log.KEEP_LINES and recs[0]["i"] == log.MAX_LINES
+
+
+# ---- failure_reason: 検証コマンドの出力から失敗理由を 1 行抽出する ----
+
+RUNNER_OUT = "\n".join(
+    [
+        "$ uv run python scripts/verify.py quick",
+        "[verify] leak: ok",
+        "[verify] lint: FAIL",
+        "$ uv run ruff check hooks tests scripts",
+        "E501 Line too long (101 > 100)",
+        "Found 2 errors.",
+    ]
+)
+PYTEST_OUT = "....F..\nFAILED tests/test_x.py::test_y - assert 1 == 2\n1 failed, 3 passed in 0.5s\n"
+
+
+def test_failure_reasonは最初のFAIL行を採る():
+    assert log.failure_reason(RUNNER_OUT) == "[verify] lint: FAIL"
+
+
+def test_failure_reasonはpytestのFAILED行を採る():
+    assert log.failure_reason(PYTEST_OUT) == "FAILED tests/test_x.py::test_y - assert 1 == 2"
+
+
+def test_failure_reasonは小文字のerrorコロンも採る():
+    input_str = "$ make\nbuilding\nerror: link failed\ndone\n"
+    assert log.failure_reason(input_str) == "error: link failed"
+
+
+def test_failure_reasonは一致が無ければ最後の非空行():
+    assert log.failure_reason("$ x\nFound 2 errors.\n\n\n") == "Found 2 errors."
+
+
+def test_failure_reasonはコマンド行を候補にしない():
+    # 1 行目の "$ cmd" は候補から外す(コマンド文字列に error: が含まれても拾わない)
+    assert log.failure_reason("$ run --on-error: stop\nall good\n") == "all good"
+    assert log.failure_reason("$ false\n") == ""
+
+
+def test_failure_reasonはタイムアウトと実行不能をそのまま返す():
+    assert log.failure_reason("$ cmd\ntimed out after 300s") == "timed out after 300s"
+    assert log.failure_reason("$ cmd\ncould not run: [Errno 2] No such file") == (
+        "could not run: [Errno 2] No such file"
+    )
+
+
+def test_failure_reasonは前後の空白を除き120字で切る():
+    long = "FAIL " + "x" * 200
+    out = log.failure_reason("  " + long + "  \n")
+    assert out == long[: log.REASON_MAX_CHARS] and len(out) == 120
+
+
+def test_failure_reasonは空出力で空文字():
+    assert log.failure_reason("") == ""
+    assert log.failure_reason("\n\n") == ""
