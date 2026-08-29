@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="loop-hooks 自身の開発に Stop gate を適用し、5 段階で検証を拡充した loop engineering の実践記録">
+<title>止まる条件の設計</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    --bg: #F5F8F7;
+    --bg-2: #EAF0EE;
+    --ink: #1B2A2F;
+    --ink-2: #4A5A60;
+    --ink-3: #7A8A90;
+    --rule: #D3DEDB;
+    --pass: #117A65;
+    --pass-soft: #DCEEE8;
+    --fail: #B3392A;
+    --fail-soft: #F5E1DD;
+    --warn: #A66A00;
+    --warn-soft: #F6ECD6;
+    --code-bg: #E9EFED;
+    --display: "Shippori Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+    --body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+    --mono: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0E1517; --bg-2: #15201F; --ink: #E3ECE9; --ink-2: #A9B8B4; --ink-3: #75858A;
+      --rule: #2A3A3B; --pass: #4FC3A1; --pass-soft: #12302A; --fail: #E5786A; --fail-soft: #3A1E1A;
+      --warn: #E0A742; --warn-soft: #382B12; --code-bg: #182223;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E1517; --bg-2: #15201F; --ink: #E3ECE9; --ink-2: #A9B8B4; --ink-3: #75858A;
+    --rule: #2A3A3B; --pass: #4FC3A1; --pass-soft: #12302A; --fail: #E5786A; --fail-soft: #3A1E1A;
+    --warn: #E0A742; --warn-soft: #382B12; --code-bg: #182223;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--body); font-size: 16px; line-height: 1.85;
+    font-feature-settings: "palt";
+  }
+  a { color: var(--pass); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--pass); outline-offset: 2px; }
+  .page { max-width: 1040px; margin: 0 auto; padding: 56px 24px 96px; }
+  .prose { max-width: 42em; }
+  header.hero { border-bottom: 1px solid var(--rule); padding-bottom: 40px; margin-bottom: 56px; }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+  h1 { font-family: var(--display); font-weight: 700; font-size: clamp(30px, 4.6vw, 46px); line-height: 1.3; margin: 14px 0 18px; letter-spacing: .01em; text-wrap: balance; }
+  .lede { font-size: 17.5px; color: var(--ink-2); max-width: 40em; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-top: 22px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); }
+  .meta b { color: var(--ink); font-weight: 600; }
+  section { margin: 0 0 64px; }
+  h2 { font-family: var(--display); font-weight: 700; font-size: 27px; line-height: 1.4; margin: 0 0 18px; text-wrap: balance; }
+  h2 .no { font-family: var(--mono); font-size: 13px; color: var(--ink-3); letter-spacing: .1em; display: block; margin-bottom: 6px; }
+  h3 { font-family: var(--body); font-weight: 700; font-size: 16.5px; margin: 30px 0 10px; }
+  p { margin: 0 0 16px; }
+  ul, ol { padding-left: 1.4em; margin: 0 0 16px; }
+  li { margin-bottom: 6px; }
+  code { font-family: var(--mono); font-size: .88em; background: var(--code-bg); padding: .1em .38em; border-radius: 3px; }
+  pre { background: var(--code-bg); padding: 16px 18px; border-radius: 4px; overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.65; margin: 0 0 18px; }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  blockquote { margin: 0 0 18px; padding: 4px 0 4px 18px; border-left: 3px solid var(--pass); color: var(--ink-2); }
+  .wide { max-width: none; }
+  .table-wrap { overflow-x: auto; margin: 0 0 18px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--rule); }
+  th { font-weight: 700; font-size: 13px; color: var(--ink-2); border-bottom: 2px solid var(--rule); white-space: nowrap; }
+  td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ver { font-family: var(--mono); font-size: 13px; white-space: nowrap; }
+  .pill { display: inline-block; font-family: var(--mono); font-size: 12px; padding: 1px 8px; border-radius: 999px; line-height: 1.7; }
+  .pill.pass { background: var(--pass-soft); color: var(--pass); }
+  .pill.fail { background: var(--fail-soft); color: var(--fail); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+
+  /* stat strip */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin: 22px 0 26px; }
+  .stat { background: var(--bg); padding: 16px 16px 14px; }
+  .stat .v { font-family: var(--mono); font-size: 26px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .stat .v.pass { color: var(--pass); } .stat .v.fail { color: var(--fail); } .stat .v.warn { color: var(--warn); }
+  .stat .l { font-size: 12.5px; color: var(--ink-3); margin-top: 6px; line-height: 1.4; }
+
+  /* loop diagram */
+  .loop { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 0 12px; align-items: center; margin: 26px 0 10px; }
+  .node { border: 1px solid var(--rule); background: var(--bg-2); padding: 12px 14px; border-radius: 4px; font-size: 14px; line-height: 1.55; }
+  .node b { display: block; font-family: var(--mono); font-size: 12px; letter-spacing: .06em; color: var(--ink-3); margin-bottom: 3px; }
+  .node.decide { border-color: var(--pass); }
+  .arrow { font-family: var(--mono); color: var(--ink-3); font-size: 18px; }
+  .branches { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  .branch { border-left: 3px solid; padding: 8px 14px; font-size: 14px; line-height: 1.6; background: var(--bg-2); }
+  .branch.pass { border-color: var(--pass); } .branch.fail { border-color: var(--fail); }
+  .branch b { font-family: var(--mono); font-size: 12px; letter-spacing: .06em; }
+  .branch.pass b { color: var(--pass); } .branch.fail b { color: var(--fail); }
+  .caption { font-size: 13px; color: var(--ink-3); margin: 8px 0 18px; }
+
+  /* stage timeline */
+  .stages { border-top: 1px solid var(--rule); }
+  .stage { display: grid; grid-template-columns: 64px 1fr; gap: 0 18px; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  .stage .n { font-family: var(--display); font-size: 30px; line-height: 1; color: var(--pass); font-weight: 700; padding-top: 4px; }
+  .stage .n small { display: block; font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); margin-top: 8px; letter-spacing: .04em; }
+  .stage h3 { margin: 0 0 6px; font-size: 16.5px; }
+  .stage p { margin: 0 0 8px; font-size: 15px; }
+  .stage .found { font-size: 14px; color: var(--ink-2); }
+  .stage .found b { color: var(--fail); font-weight: 600; }
+
+  /* layers */
+  .layers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 20px 0 8px; }
+  .layer { border: 1px solid var(--rule); border-top: 3px solid var(--pass); padding: 14px 16px; background: var(--bg-2); font-size: 14px; line-height: 1.6; }
+  .layer b { display: block; font-family: var(--mono); font-size: 13px; margin-bottom: 4px; }
+  .layer .t { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+
+  td .role { display:block; font-family: var(--mono); font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+  .principles li { margin-bottom: 12px; }
+  td .role { display:block; font-family: var(--mono); font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+  .principles li strong { display: block; font-weight: 700; }
+  footer { border-top: 1px solid var(--rule); padding-top: 22px; font-size: 13px; color: var(--ink-3); }
+  @media (max-width: 720px) {
+    .loop { grid-template-columns: 1fr; gap: 6px; }
+    .arrow { transform: rotate(90deg); justify-self: center; }
+    .branches, .layers { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: no-preference) { a { transition: color .15s; } }
+</style>
+</head>
+<body>
+
+<div class="page">
+<header class="hero">
+  <div class="eyebrow">loop-hooks · 実践記録 · 2026-08-26 → 08-28</div>
+  <h1>止まる条件の設計 —<br>loop-hooks における loop engineering の実践</h1>
+  <p class="lede">エージェントのターン終了をリポジトリの検証コマンドで判定する Stop hook プラグイン loop-hooks を、そのプラグイン自身の開発に適用し、5 段階で検証内容を拡充した記録。構成、運用データ、各検証器の役割と本リポジトリでの貢献を整理する。</p>
+  <div class="meta">
+    <span>対象 <b>wwwcojp/loop-hooks</b></span>
+    <span>期間 <b>3 日 / 0.3.1 → 0.7.0</b></span>
+    <span>テスト <b>169 → 337</b></span>
+    <span>mutants <b>936、kill 率 95.5%</b></span>
+  </div>
+</header>
+
+<section class="prose">
+  <h2><span class="no">01</span>背景: ループの停止条件</h2>
+  <p><a href="https://addyosmani.com/blog/loop-engineering/">Osmani</a> の定義では、loop engineering はエージェントへ直接 prompt を書く段階から、エージェントを駆動する系(trigger、schedule、worktree、subagent、memory)を設計する段階への移行を指す。<a href="https://newsletter.pragmaticengineer.com/p/what-is-loop-engineering">Orosz</a> の調査が示すとおり、その大部分は orchestration の領域だが、系の一点は設計の質が結果の質を直接決める。<strong>何がループの終了を判定するか</strong>である。</p>
+  <p>作業を行ったモデル自身、または review を依頼した第二のモデルに終了判定を委ねると、判定は確率的なままであり、未完了の作業に対して "done" を返しうる。<a href="https://www.sonarsource.com/blog/loop-engineering-without-verification-is-just-automation/">SonarSource</a> はこの点を「検証のない loop engineering は単なる自動化」と整理し、Osmani とともに対策として<strong>deterministic verification tier</strong>(意見を返す verifier ではなく、作業を fail させられる check)を推奨している。</p>
+  <p>loop-hooks はこの tier の最小実装である。エージェントがターンを終了しようとした時点で、リポジトリが持つ検証コマンドを実行し、失敗時はその出力を <code>additionalContext</code>(<a href="https://code.claude.com/docs/en/hooks">Claude Code hooks reference</a>)として返してターンを継続させる。プラグインは検証ロジックを持たず、検査内容は <code>.loop-hooks.json</code> でリポジトリ側が定義する。</p>
+  <p>設計判断は 3 点。(1) 方針は <code>CLAUDE.md</code>、省略不可の検査は hook に置く — 前者は context summarization や推論で欠落しうるが、後者は必ず実行される。(2) プラグインは検証ロジックを持たない — 言語や stack に依存せず、ゲートの強化はリポジトリ側の変更になる。(3) 検証は commit 単位ではなくターン単位 — pre-commit hook は commit がなければ発火せず、CI は数分後にループ外で報告する。Stop hook は失敗を生んだ context をエージェントが保持しているうちに返す。</p>
+</section>
+
+<section>
+  <div class="prose">
+    <h2><span class="no">02</span>構成: ターン単位の stop gate</h2>
+    <p>Stop / SubagentStop / TeammateIdle の各 hook event で同じ判定を行う。ターンごとの実行コストは fingerprint による変更検知で抑制する。</p>
+  </div>
+  <div class="loop wide">
+    <div class="node"><b>HOOK EVENT</b>Stop / SubagentStop / TeammateIdle</div>
+    <div class="arrow">→</div>
+    <div class="node decide"><b>FINGERPRINT</b><code>git status</code> と content hash から watch 対象の状態を算出し、前回 pass 時の記録と比較</div>
+    <div class="arrow">→</div>
+    <div class="node"><b>VERIFY</b><code>uv run python scripts/verify.py quick</code> をリポジトリルートで実行(設定は HEAD 版を優先、timeout 300 s、process group ごと kill)</div>
+  </div>
+  <div class="branches wide">
+    <div class="branch pass"><b>PASS</b> — 実行後の fingerprint を verified として記録しターンを終了する。次のターンで fingerprint が一致すれば実行しない(<span class="pill pass">skipped</span>)。</div>
+    <div class="branch fail"><b>FAIL</b> — 出力の先頭 2,500 字と末尾 5,500 字を <code>additionalContext</code>(TeammateIdle は exit 2 + stderr)で返し、ターンを継続させる。同一 fingerprint は 2 度 block しない(<span class="pill warn">warn</span> で通過、無限ループ防止)。</div>
+  </div>
+  <p class="caption">fingerprint が算出できない場合(git が観測不能)は実行側に倒す。skipped に倒すとゲートが無言で無効化されるため。</p>
+  <div class="prose">
+    <h3>設定の HEAD 優先</h3>
+    <p>エージェントは working tree の <code>.loop-hooks.json</code> を書き換えられる(<code>command</code> を <code>true</code> にする、ファイルを破壊する)。このためゲートは commit 済みの設定を読み、working tree 版との差異は通知のみ行う。この不変条件は第 1 段階でテスト化し、第 5 段階の contract test で再確認した。</p>
+  </div>
+</section>
+
+<section>
+  <div class="prose">
+    <h2><span class="no">03</span>dogfooding: 運用データ</h2>
+    <p>0.2.0 で entry file を移動した際にゲートが無言で無効化された。0.3.0 の実装中には None guard の欠落、不正 UTF-8、例外の catch 漏れが発生した。いずれもゲートが自リポジトリに掛かっていればターン内で検出できた欠陥であり、第 1 段階として自リポジトリへ適用した。以下は判定ログの実測値(2026-08-26 13:10 〜 08-27 15:28 UTC)。</p>
+  </div>
+  <div class="stats wide">
+    <div class="stat"><div class="v">654</div><div class="l">判定記録(SessionStart 含む)</div></div>
+    <div class="stat"><div class="v">256</div><div class="l">検証コマンドの実行回数</div></div>
+    <div class="stat"><div class="v pass">164</div><div class="l">pass — ターン終了を許可</div></div>
+    <div class="stat"><div class="v fail">62</div><div class="l">fail — 出力を返してターン継続</div></div>
+    <div class="stat"><div class="v warn">30</div><div class="l">warn — 同一状態の再 block を回避</div></div>
+    <div class="stat"><div class="v">11.5<span style="font-size:14px">s</span></div><div class="l">実行時間の中央値(最大 17.8 s)</div></div>
+  </div>
+  <div class="prose">
+    <p>382 回は fingerprint 一致により <span class="pill pass">skipped</span>(未実行)。実行の 77% は SubagentStop で発生した。read-only の reviewer subagent の終了時に、並行する implementer subagent の未 commit 変更(未使用 import、行長超過、RED 状態のテスト)でゲートが fail した例を含む。ゲートは変更の作成者を区別しないため、同一ファイルに触る implementer を並行させない運用に変更した。</p>
+    <h3>自己参照リポジトリの運用規約</h3>
+    <ul>
+      <li><strong>セッションが使用するプラグインは GitHub 版(marketplace <code>source: github</code>)。</strong>working tree の破損した <code>gate.py</code> がゲート判定を行ってはならない。working tree のコードは verify runner 経由の pytest でのみ実行される。</li>
+      <li><strong>entry file(<code>hooks/gate.py</code>・<code>hooks/session_start.py</code>・<code>hooks/hooks.json</code>)を移動しない。</strong>hook 定義はセッション開始時の snapshot であり、移動するとゲートが無言で消える。移動する場合は release note に再起動要件を明記する。</li>
+      <li><strong>ゲートで止められたらコードを修正する。</strong><code>.loop-hooks.json</code> の変更や <code>disableAllHooks</code> で通過しない。設定は HEAD 版が優先されるため working tree の変更は効かない。</li>
+      <li><strong>ゲートの検査内容は CI と同一。</strong><code>quick</code> は CI の <code>test</code> job と同じ 6 check であり、乖離は <code>test_quick_stage_mirrors_ci</code> が検出する。</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="prose">
+    <h2><span class="no">04</span>段階的導入と各段階で検出した欠陥</h2>
+    <p>各段階は独立に価値を持ち、段階ごとに運用してから次段階を判断した。「検出した欠陥」はその段階の検査を導入した結果として発見されたものである。</p>
+  </div>
+  <div class="stages wide">
+    <div class="stage">
+      <div class="n">1<small>0.3.1 / 0.3.2</small></div>
+      <div>
+        <h3>deterministic gate(dogfooding)</h3>
+        <p><code>.loop-hooks.json</code> と <code>scripts/verify.py quick</code>(leak → ruff → pytest)を導入。CI mirror test でゲートと CI の一致を固定。</p>
+        <div class="found">検出した欠陥: fingerprint が None の経路が「同一状態を 2 度 block しない」guard を迂回し、TeammateIdle で <b>exit 2 を無限に返す</b>。<code>--status</code> が hook と異なる state directory を読み <code>(no runs recorded)</code> を表示する(0.3.2 で修正)。</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="n">2<small>0.4.0</small></div>
+      <div>
+        <h3>static analysis</h3>
+        <p><code>ruff format</code>、ruff <code>S</code> rules(bandit 相当)、import-linter 3 contracts、pyright strict、CI security job(zizmor、pip-audit)、Actions の SHA pin、Dependabot、secret scanning / push protection。</p>
+        <div class="found">検出した欠陥: pyright strict で <b>221 件</b>の型エラー(部分的な annotation)。pip-audit の pipeline が <code>pipefail</code> なしで<b>失敗を握り潰していた</b>。</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="n">3<small>0.5.0</small></div>
+      <div>
+        <h3>mutation testing + ratchet</h3>
+        <p>mutmut で <code>hooks/lib</code> の 6 ファイルを対象に mutation testing。ファイル単位の killed 件数を baseline と比較し、減少で fail(許容 1 件、total 変化時は re-baseline)。baseline は runner のみが更新する。</p>
+        <div class="found">検出した欠陥: <code>i -= 1</code> 型の mutant で<b>無限ループ化する構造</b>(メモリ 11 GB まで増大)。<code>pragma: no mutate</code> ではなく iterator への書き換えで構造的に排除。score の丸めによる ratchet の誤動作 → 件数比較へ変更。timeout を killed に計上すると結果が揺れる → 除外。</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="n">4<small>0.6.0</small></div>
+      <div>
+        <h3>property-based testing</h3>
+        <p>hypothesis で 6 property(P1: 任意 JSON で <code>_validate</code> が raise しない、P2: <code>is_watched</code> の ignore 優先、P3: fingerprint の決定性と感度、P4: 任意 byte 列で <code>tail</code> が raise しない、P5: log の行数上限、P6: state の round trip)。ゲートでは 25 例、<code>all</code> では 300 例、mutmut 実行中は 5 例。</p>
+        <div class="found">検出した欠陥: mutmut は永続 process を fork するため <b>conftest の import 時の profile 選択が効かない</b>(stats phase で 5 例に固定される)。<code>pytest_runtest_setup</code> hook で実行時に差し替える方式へ変更。証明力: property 単独で config 14 / fingerprint 81 / log 44 / state 74 mutants を kill。</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="n">5<small>0.7.0</small></div>
+      <div>
+        <h3>architecture test + contract test</h3>
+        <p>entry file の import 規則(AST)、<code>gate.handle</code> と <code>status.collect</code> の判定式の一致、state / log の書込先がリポジトリ外に留まること(<code>..</code>、symlink)、<code>hooks/lib</code> の公開関数が raise しないことの table-driven test、Claude Code との hook I/O contract を golden 9 件で完全一致検査。</p>
+        <div class="found">検出した欠陥: <code>status</code> の <code>will_run</code> と <code>blocked</code> が、<b>fingerprint が算出できない場合に gate と異なる判定</b>を返していた(status は「実行しない」と表示、gate は実行する)。判定一致テストの追加当日に検出・修正。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="prose">
+    <h2><span class="no">05</span>検証器の役割と本リポジトリでの貢献</h2>
+    <p>検証器は実行時間で 3 層に分ける。Stop gate の予算は 30 秒とし、超える検査は <code>all</code> stage(commit 前・phase 完了時に実行)へ分離する。同一の runner が全 stage を持ち、ゲートと CI は <code>quick</code> のみを使う。</p>
+  </div>
+  <div class="layers wide">
+    <div class="layer"><b>quick</b><span class="t">≈ 14 s · gate + CI</span><br>leak → ruff check → ruff format → import-linter → pyright → pytest(337 件)</div>
+    <div class="layer"><b>properties</b><span class="t">≈ 6 s · all のみ</span><br>hypothesis 300 例(P1〜P6)</div>
+    <div class="layer"><b>mutation</b><span class="t">≈ 80–90 s · all のみ</span><br>mutmut 936 mutants、件数 ratchet</div>
+  </div>
+  <div class="table-wrap wide">
+    <table>
+      <thead><tr><th>検証器</th><th>層</th><th>役割</th><th>検出した不具合</th><th>防いだ劣化(回帰・設計の逸脱)</th></tr></thead>
+      <tbody>
+        <tr><td><b>loop-hooks(Stop gate)</b><span class="role"><a href="https://github.com/wwwcojp/loop-hooks">wwwcojp/loop-hooks</a></span></td><td class="ver">turn</td><td>ターン終了時に <code>quick</code> を実行し、fail 時は出力を返してターンを継続させる</td><td>3 日間で 62 回の fail をターン内で返却。第 5 段階の fix round では、implementer が RED 状態のテスト(<code>will_run</code> の乖離を示す新規テスト)を残したまま終了するのを reviewer の SubagentStop で検出</td><td>lint / 型 / テストが赤いままターンが閉じることを構造的に排除。CLAUDE.md の指示では防げない「エージェントが検証を省略する」経路を遮断</td></tr>
+        <tr><td><b>leak check</b><span class="role">git grep(CI と同一正規表現)</span></td><td class="ver">quick / CI</td><td>追跡ファイル中の実 home path を検出</td><td>—(ゲート化後は 0 件)</td><td>spec §3 の計測記録、contract golden、hypothesis の <code>_root()</code> がいずれも placeholder(<code>/home/USER</code>、<code>&lt;CWD&gt;</code>)を採用する設計になった。公開リポジトリへの path 混入を push 前に遮断</td></tr>
+        <tr><td><b>ruff check</b><span class="role"><a href="https://docs.astral.sh/ruff/">ruff</a></span></td><td class="ver">quick / CI</td><td>lint(E402、E501、F401 等)</td><td>第 5 段階 Task 2 で plan が指定した未使用 import(F401)、fix round 2 で行長超過(E501)2 件、Task 5 で <code>subprocess</code> の partial path(S607)を検出</td><td>plan 由来の dead import がコードに残ることを防止。<code>from lib import …</code> 形式への回帰(E402 と併せて)を検出可能に</td></tr>
+        <tr><td><b>ruff format</b></td><td class="ver">quick / CI</td><td>整形差分の排除</td><td>—</td><td>整形差分で mutant の key(関数名 + 連番)がずれ、baseline との比較が無効化される劣化を防止。手書き整形の揺れを review 対象から除外</td></tr>
+        <tr><td><b>ruff S rules</b><span class="role">bandit 相当</span></td><td class="ver">quick / CI</td><td>subprocess / shell 実行等の security lint</td><td>—(導入時の検出は既知の 4 箇所)</td><td><code>shell=True</code>(gate.py)と <code>subprocess.run</code>(fingerprint / verify)の 4 箇所を根拠コメント付き <code>noqa</code> で固定。新規の subprocess 呼び出しが説明なしに増えることを防止。tests は S101 / S603 を per-file-ignores</td></tr>
+        <tr><td><b>import-linter</b><span class="role"><a href="https://import-linter.readthedocs.io/">import-linter</a></span></td><td class="ver">quick / CI</td><td>module 依存の contract(lib は entry を import しない / subprocess は fingerprint のみ / 層の向き status → log → config → fingerprint → state → hook_io)</td><td>—(3 contracts を KEPT で維持)</td><td>第 5 段階で <code>FP_UNAVAILABLE_KEY</code> を gate.py から import する案を contract 違反として却下し、lib 側に置いて文字列一致テストで結合する設計に誘導。subprocess の呼び出し面を fingerprint に限定</td></tr>
+        <tr><td><b>pyright strict</b><span class="role"><a href="https://microsoft.github.io/pyright/">pyright</a></span></td><td class="ver">quick / CI</td><td>hooks / scripts の静的型検査</td><td>導入時に 221 件(annotation 欠落、<code>Any</code> の伝播、<code>Optional</code> の未処理)を検出</td><td><code>str | None</code> を返す関数(<code>read_verified</code> 等)の戻り値を None 検査なしで使う回帰を検出。副作用として <code>cast</code> が増え、等価 mutant が増加した点は記録</td></tr>
+        <tr><td><b>pytest(example test)</b></td><td class="ver">quick / CI</td><td>入口とライブラリの挙動を例示で固定(337 件、Python 3.10 / 3.14)</td><td>第 1 段階: fingerprint が None の経路で TeammateIdle が exit 2 を無限に返す欠陥、<code>--status</code> が別の state directory を読む欠陥</td><td>HEAD 優先・timeout 時の process group kill・出力の先頭/末尾保持・TeammateIdle の exit 2 を固定。第 5 段階で <code>status</code> の判定を変えた際、旧挙動を固定していたテストが fail し、意図的な仕様変更として更新する手順を強制</td></tr>
+        <tr><td><b>CI mirror test</b><span class="role">test_quick_stage_mirrors_ci</span></td><td class="ver">quick</td><td><code>verify.py quick</code> と CI <code>test</code> job の command 列の一致を検査</td><td>第 2 段階で check を追加するたびに(ruff format、import-linter、pyright)CI との乖離を検出</td><td>ゲートが通るのに CI が落ちる、またはその逆という状態を排除。CI の security job(zizmor、pip-audit)を意図的に mirror 対象外とした判断を明示</td></tr>
+        <tr><td><b>hypothesis(PBT)</b><span class="role"><a href="https://hypothesis.readthedocs.io/">hypothesis</a></span></td><td class="ver">quick(25 例)/ properties(300 例)</td><td>生成入力に対する性質の検査</td><td>導入過程で、mutmut の fork model により conftest の import 時 profile 選択が無効になる問題を検出(mutation 実行が 25 例で走り所要時間が数倍化する状態)</td><td>0.3.0 で発生した欠陥の類型(任意 JSON で <code>_validate</code> が raise、任意 byte 列で <code>tail</code> が raise、glob 一致の退化)を property として固定し再発を防止。P6a 強化で <code>state.key</code> の hexdigest 切り出し長の mutant を kill</td></tr>
+        <tr><td><b>mutmut(mutation testing)</b><span class="role"><a href="https://mutmut.readthedocs.io/">mutmut</a></span></td><td class="ver">mutation(all)</td><td>テストの検出力を mutant の kill 率で測定。件数 ratchet で低下を fail</td><td><code>_changed_paths</code> のインデックス loop が <code>i -= 1</code> 型 mutant で無限化する構造(メモリ 11 GB)を検出 → iterator 化。P1 / P4 / P5 の生存 mutant を精査し等価(<code>cast</code>、<code>encoding</code> 既定、<code>ensure_ascii=None</code>)と判定</td><td>baseline を runner のみが更新する規約により、テストを弱める変更(assert の削除等)を <code>all</code> で fail させる。第 3 段階で発生した baseline の drift は <code>git checkout</code> で破棄し、手動更新を行わない運用を確立</td></tr>
+        <tr><td><b>architecture test</b><span class="role">tests/test_architecture.py</span></td><td class="ver">quick / CI</td><td>構造規則(entry の import、判定式一致、書込先、非 raise)を例示で固定</td><td><code>status.collect</code> の <code>will_run</code>(fingerprint None かつ未 verified で False)と <code>blocked</code>(固定 key <code>fp-unavailable</code> を無視)が gate と乖離していた欠陥を、テスト追加当日に検出(0.7.0 Fixed)</td><td>entry file がモジュール直下で <code>status</code> を import する回帰(ゲート経路で表示モジュールを読む)、state / log がリポジトリ内に書かれる回帰、lib が書込不能・git 不在で raise する回帰を検出可能に</td></tr>
+        <tr><td><b>contract test(golden)</b><span class="role">tests/contracts/*.json · <a href="https://code.claude.com/docs/en/hooks">hooks reference</a></span></td><td class="ver">quick / CI</td><td>Claude Code との hook I/O(input event → output JSON / exit code / stderr)を正規化後に辞書ごと完全一致</td><td>—(9 golden は初回実行で一致)</td><td>key 名(<code>hookSpecificOutput.additionalContext</code>、<code>systemMessage</code>)、event 名、TeammateIdle の exit 2 + stderr、告知文の変更を fail として検出可能に。各 golden に reference URL と確認日を持たせ、Claude Code 側の仕様変更を追跡できる形にした</td></tr>
+        <tr><td><b>zizmor</b><span class="role"><a href="https://docs.zizmor.sh/">zizmor</a></span></td><td class="ver">CI security</td><td>GitHub Actions workflow の設定検査</td><td>導入時に Actions の未 pin(tag 参照)と permissions 未指定を検出</td><td>Actions を commit SHA で pin し permissions を最小化。Dependabot の bump PR(#1)でも SHA pin が維持されることを検査</td></tr>
+        <tr><td><b>pip-audit</b><span class="role"><a href="https://pypi.org/project/pip-audit/">pip-audit</a></span></td><td class="ver">CI security</td><td>依存の既知脆弱性検査</td><td><code>uv export | pip-audit</code> の pipeline に <code>shell: bash</code>(pipefail)が無く、<code>uv export</code> の失敗が success として扱われる欠陥を検出</td><td>dev 依存(hypothesis、mutmut 等)の追加時に脆弱性を CI で検出可能に</td></tr>
+        <tr><td><b>Dependabot / secret scanning</b></td><td class="ver">GitHub</td><td>Actions と uv 依存の週次更新、secret の push protection</td><td>—</td><td>Actions group と ruff の bump PR(#1、#2)を CI 緑で取り込み。公開リポジトリで secret scanning / push protection を有効化し、credential の混入を push 時点で遮断</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h3 class="prose">mutation baseline(0.7.0)</h3>
+  <div class="table-wrap wide">
+    <table>
+      <thead><tr><th>ファイル</th><th class="num">killed</th><th class="num">total</th><th class="num">score</th><th>生存 mutant の分類</th></tr></thead>
+      <tbody>
+        <tr><td><code>config.py</code></td><td class="num">144</td><td class="num">154</td><td class="num">93.5</td><td><code>cast</code> の型引数(等価)、git 経路(対象外)</td></tr>
+        <tr><td><code>fingerprint.py</code></td><td class="num">140</td><td class="num">147</td><td class="num">95.2</td><td>git status の rename / copy 記号の処理</td></tr>
+        <tr><td><code>hook_io.py</code></td><td class="num">13</td><td class="num">15</td><td class="num">86.7</td><td>等価 mutant</td></tr>
+        <tr><td><code>log.py</code></td><td class="num">65</td><td class="num">77</td><td class="num">84.4</td><td><code>encoding</code> 既定値、<code>ensure_ascii=None</code>(等価)</td></tr>
+        <tr><td><code>state.py</code></td><td class="num">130</td><td class="num">140</td><td class="num">92.9</td><td>XDG fallback(テストでは到達不能)</td></tr>
+        <tr><td><code>status.py</code></td><td class="num">401</td><td class="num">403</td><td class="num">99.5</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption">baseline は <code>tests/mutation-baseline.json</code>。runner のみが更新し、手動で下げない。</p>
+</section>
+
+<section class="prose">
+  <h2><span class="no">06</span>開発プロセス側のループ</h2>
+  <p>コードのループ(turn → gate)の外側に、開発プロセスのループがある。各段階は brainstorming → 子 spec → implementation plan → Subagent-Driven Development(SDD)で進めた。task ごとに新規の implementer subagent を起動し、read-only の reviewer subagent が spec 適合と品質を判定する。指摘は同一 implementer に返して fix round(最大 5 回)を回し、最後に branch 全体の review を行う。controller の裁定はすべて ledger に記録する。</p>
+  <p>ゲートは SDD の subagent にも作用した。reviewer の終了時に SubagentStop で <code>quick</code> が走り、並行中の implementer の未 commit 変更で fail する。これを受けて、同一ファイルに触る implementer を並行させない、reviewer には read-only を明記する、implementer には foreground 実行と subagent 禁止を明記する、という運用に固定した。</p>
+  <h3>ledger に記録した裁定の例</h3>
+  <ul>
+    <li>第 4 段階: 「6 property すべてが mutant を 1 件以上 kill する」を当初「文字どおりには未達」と裁定。最終 review で property 単独の測定を行い達成を確認し、裁定を訂正して記録。</li>
+    <li>第 5 段階: 判定一致テストが lib の欠陥を検出。「欠陥が見つかった場合のみ lib を修正する」制約に従い修正、CHANGELOG の Fixed に記載、mutation baseline を re-baseline。</li>
+    <li>第 3 段階: 無限ループ化する mutant に <code>pragma: no mutate</code> を付けず、loop を iterator に書き換えて mutant 自体を生成不能にした。</li>
+  </ul>
+</section>
+
+<section class="prose">
+  <h2><span class="no">07</span>まとめ</h2>
+  <ol class="principles">
+    <li><strong>停止条件は系の構成要素として設計する。</strong>モデルの自己申告ではなく、リポジトリが持つ検査に判定させる。検査内容はリポジトリが所有し、プラグインはターンを閉じるか否かのみを制御する。</li>
+    <li><strong>ゲートは自リポジトリにも適用する。</strong>3 日間で 62 回の fail をターン内で返却した。ゲートを作る側が最もゲートを必要としていた。</li>
+    <li><strong>検証内容は段階的に拡充する。</strong>各段階の検査は導入直後に固有の欠陥を検出した。一括導入では検出元の対応が取れない。</li>
+    <li><strong>実行時間で層を分ける。</strong>ゲートは 30 秒以内、それ以外は <code>all</code>。遅いゲートは無効化される。</li>
+    <li><strong>変更検知で未実行を作る。</strong>256 回の実行に対し 382 回が skipped。検知がなければ毎ターン 12 秒を消費する。</li>
+    <li><strong>不変条件はテストとして記述する。</strong>「HEAD 優先」「書込先はリポジトリ外」「entry は lib のみ import」は、記憶や <code>CLAUDE.md</code> の文章ではなく fail するテストで維持する。</li>
+    <li><strong>裁定は ledger に残す。</strong>自律実行中に決めた事項と、誤りだった場合の代償を記録し、人が後から見直せるようにする。</li>
+  </ol>
+</section>
+
+<section class="prose">
+  <h2><span class="no">08</span>参考文献</h2>
+  <ul>
+    <li>Addy Osmani, <a href="https://addyosmani.com/blog/loop-engineering/">Loop Engineering</a> — loop engineering の定義と deterministic verification tier の提案</li>
+    <li>Gergely Orosz, <a href="https://newsletter.pragmaticengineer.com/p/what-is-loop-engineering">What is loop engineering?</a> — 各社の運用事例の調査</li>
+    <li>SonarSource, <a href="https://www.sonarsource.com/blog/loop-engineering-without-verification-is-just-automation/">Loop engineering without verification is just automation</a> — 停止条件を deterministic にする論拠</li>
+    <li>Anthropic, <a href="https://code.claude.com/docs/en/hooks">Claude Code hooks reference</a> — Stop / SubagentStop / TeammateIdle / SessionStart の入出力仕様(contract golden の参照元)</li>
+    <li>ツール: <a href="https://docs.astral.sh/ruff/">ruff</a>、<a href="https://microsoft.github.io/pyright/">pyright</a>、<a href="https://import-linter.readthedocs.io/">import-linter</a>、<a href="https://mutmut.readthedocs.io/">mutmut</a>、<a href="https://hypothesis.readthedocs.io/">hypothesis</a>、<a href="https://docs.zizmor.sh/">zizmor</a>、<a href="https://pypi.org/project/pip-audit/">pip-audit</a></li>
+    <li>本リポジトリ: <a href="https://github.com/wwwcojp/loop-hooks">wwwcojp/loop-hooks</a> — 設計文書 <code>docs/superpowers/specs/</code>(親: <code>2026-08-26-verification-roadmap-design.md</code>、段階ごとの子 spec)、実行済み plan <code>docs/superpowers/archive/plans/</code></li>
+  </ul>
+</section>
+
+<footer>
+  <p>数値は判定ログ、<code>tests/mutation-baseline.json</code>、pytest の collect 結果、CHANGELOG と commit 履歴に基づく(2026-08-28 時点、0.7.0)。</p>
+</footer>
+</div>
+
+</body>
+</html>

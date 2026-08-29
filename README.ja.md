@@ -59,6 +59,9 @@ loop-hooks は Claude Code におけるこの決定論的な層を、最小の�
   同じコンテキストを保持している時点で失敗を返せる。変更検出により、ターンごとの実行コストを
   許容範囲に抑えている。
 
+このリポジトリ自身に loop engineering を適用した記録(ゲート、dogfooding の実測、5 段階の検証と各検証器が
+検出したもの)を <https://wwwcojp.github.io/loop-hooks/> に公開している。
+
 ## 何をするか
 
 セッション開始時には `hooks/session_start.py` が設定を検証し、ゲートを告知する

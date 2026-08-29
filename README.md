@@ -65,6 +65,10 @@ Three design decisions follow:
   returns the failure while the agent still has the context that produced it.
   Change detection keeps the per-turn cost acceptable.
 
+A write-up of how this repository applies loop engineering to itself (the gate, dogfooding data,
+the five verification stages and what each verifier caught) is published at
+<https://wwwcojp.github.io/loop-hooks/> (Japanese).
+
 ## What it does
 
 At session start, `hooks/session_start.py` validates the configuration and
