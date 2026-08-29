@@ -4,17 +4,19 @@
 Copy this file to `scripts/verify.py` in your repository, edit the STAGES table
 below, and point `.loop-hooks.json` at it:
 
-    {"gate": {"command": "python scripts/verify.py quick"}}
+    {"gate": {"command": "uv run python scripts/verify.py quick"}}
 
 Usage:
-    python scripts/verify.py quick        # run one stage
-    python scripts/verify.py all          # run every stage in definition order
-    python scripts/verify.py --print-ci   # print the `run:` line for each check
+    uv run python scripts/verify.py quick        # run one stage
+    uv run python scripts/verify.py all          # run every stage in definition order
+    uv run python scripts/verify.py --print-ci   # print the `run:` line for each check
 
 Output is one line per check: `[verify] <name>: ok` or `[verify] <name>: FAIL (...)`
 followed by the tail of the command output. The runner stops at the first failure
 and exits 1; exits 0 when every check passes; exits 2 for an unknown stage.
 loop-hooks records the first FAIL line as the failure reason in `--status`.
+
+In a project without uv, drop the `uv run` prefix and make sure the tools are on PATH.
 
 Standard library only. Python 3.10+.
 """
@@ -114,7 +116,7 @@ def main(argv: list[str]) -> int:
         "--print-ci", action="store_true", help="print the CI `run:` line for each check and exit"
     )
     args = parser.parse_args(argv)
-    stage = args.stage or ("all" if args.print_ci else "quick")
+    stage = args.stage if args.stage is not None else ("all" if args.print_ci else "quick")
     selected = stages_for(stage)
     if selected is None:
         print(f"unknown stage: {stage} (known: {known})", file=sys.stderr)

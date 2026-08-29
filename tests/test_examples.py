@@ -113,6 +113,12 @@ def test_未知のstageはexit2(tmp_path):
     assert "unknown stage: nope (known: quick, slow, all)" in r.stderr
 
 
+def test_空文字のstageはexit2(tmp_path):
+    r = _run_template(tmp_path, OK_STAGES, "")
+    assert r.returncode == 2
+    assert "unknown stage:" in r.stderr
+
+
 def test_print_ciはcheckごとに1行(tmp_path):
     r = _run_template(tmp_path, OK_STAGES, "--print-ci", "quick")
     assert r.returncode == 0
@@ -164,6 +170,19 @@ EXPECTED_COMMANDS = {
     "go": "gofmt -l . | (! grep .) && go vet ./... && go test ./...",
 }
 
+# (timeout_sec, watch, ignore) — config.load() は gate に既にあるキーを上書きするだけなので
+# (hooks/lib/config.py の _validate: merged.update(gate))、ここは JSON の生の値と一致する。
+EXPECTED_GATE = {
+    "python-uv": (300, ["*.py", "pyproject.toml"], [".venv/*", "*/.venv/*", ".hypothesis/*"]),
+    "node-bun": (
+        300,
+        ["*.ts", "*.tsx", "package.json", "*tsconfig*.json"],
+        ["node_modules/*", "*/node_modules/*", "dist/*"],
+    ),
+    "rust-cargo": (600, ["*.rs", "Cargo.toml", "Cargo.lock"], ["target/*"]),
+    "go": (300, ["*.go", "go.mod", "go.sum"], ["vendor/*"]),
+}
+
 
 def test_設定例は4つ():
     dirs = sorted(p.name for p in EXAMPLES.iterdir() if (p / ".loop-hooks.json").is_file())
@@ -177,8 +196,11 @@ def test_設定例はconfigの検証を通る(stack, tmp_path):
     cfg = config.load(str(tmp_path))
     assert cfg is not None and "_error" not in cfg, cfg
     assert cfg["gate"]["command"] == EXPECTED_COMMANDS[stack]
-    assert cfg["gate"]["timeout_sec"] in (300, 600)
-    assert cfg["gate"]["watch"] and cfg["gate"]["ignore"]
+    assert (
+        cfg["gate"]["timeout_sec"],
+        cfg["gate"]["watch"],
+        cfg["gate"]["ignore"],
+    ) == EXPECTED_GATE[stack]
 
 
 def test_READMEはexamplesへリンクする():

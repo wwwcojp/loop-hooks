@@ -13,14 +13,16 @@ loop-hooks records the first `FAIL` line as the failure reason in `--status`.
    runner resolves the repository root as the parent of `scripts/`).
 2. Edit the `STAGES` table at the top: keep `quick` under about 30 seconds
    (the `--status` summary warns beyond that budget), move slower checks to
-   `slow`.
+   `slow`. Keep `CHECK_TIMEOUT_SEC` in the runner below `gate.timeout_sec` in
+   `.loop-hooks.json`; otherwise the gate kills the run first and reports its
+   own timeout instead of the runner's `FAIL (timeout after …)` line.
 3. Put the matching `.loop-hooks.json` from this directory at the repository
    root and commit it — the gate reads the committed version.
 
 ```
-python scripts/verify.py quick        # one stage
-python scripts/verify.py all          # every stage, in definition order
-python scripts/verify.py --print-ci   # the `run:` line for each check
+uv run python scripts/verify.py quick        # one stage
+uv run python scripts/verify.py all          # every stage, in definition order
+uv run python scripts/verify.py --print-ci   # the `run:` line for each check
 ```
 
 ### Keep CI identical to the gate
