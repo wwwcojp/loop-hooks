@@ -16,9 +16,9 @@
       "total": 15
     },
     "hooks/lib/log.py": {
-      "score": 84.4,
-      "killed": 65,
-      "total": 77
+      "score": 87.4,
+      "killed": 83,
+      "total": 95
     },
     "hooks/lib/state.py": {
       "score": 92.9,
@@ -26,9 +26,9 @@
       "total": 140
     },
     "hooks/lib/status.py": {
-      "score": 99.5,
-      "killed": 401,
-      "total": 403
+      "score": 98.2,
+      "killed": 546,
+      "total": 556
     }
   }
 }

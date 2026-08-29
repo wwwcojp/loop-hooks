@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.8.0] - 2026-08-29
+
+### Added
+- **Failure reason in the decision log.** `fail` and `warn` records now carry `reason`: the first
+  output line matching `FAIL` / `FAILED` / `ERROR` / `error:`, otherwise the last non-empty line,
+  truncated to 120 characters. `--status` shows it on the `recent` rows.
+- **`summary` row in `--status` / `/loop-hooks:status`**: record count and first timestamp, how
+  many runs passed / failed / were let through with a warning, how many turns were skipped by
+  change detection, and the median run time. When the median or any of the last five runs exceeds
+  the 30-second budget the row says so and suggests splitting the command.
+
+### Changed
+- `hooks/lib/state.py` now owns `FP_UNAVAILABLE_KEY` (the key the gate and `--status` use when the
+  fingerprint cannot be computed); `status.FP_UNAVAILABLE_KEY` is gone.
+
+### Upgrading
+- **Restart Claude Code after updating.** `hooks/gate.py` changed; hook definitions are a
+  session-start snapshot. The first SessionStart after the restart prints `[loop-hooks 0.8.0]`.
+
 ## [0.7.0] - 2026-08-27
 
 ### Added

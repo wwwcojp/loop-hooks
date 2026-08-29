@@ -303,7 +303,9 @@ snapshotted when a session starts, so restart Claude Code after updating the plu
 **Decision log:** `$CLAUDE_PLUGIN_DATA/state/<key>.log.jsonl`, one JSON line per
 decision, newest last. `--status` prints the directory it read as `records`; from a
 terminal (no `CLAUDE_PLUGIN_DATA`) it looks for `~/.claude/plugins/data/loop-hooks-*/`
-and falls back to `~/.cache/loop-hooks/state/`.
+and falls back to `~/.cache/loop-hooks/state/`. Failed runs record why (the first
+failing line of the output), and the status output starts with a summary of how often
+the gate ran, passed and failed, and how long it takes.
 
 ## Manual smoke test
 

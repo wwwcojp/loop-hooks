@@ -40,7 +40,8 @@
 
 ### 2.2 集計行(`hooks/lib/status.py`)
 
-`collect` に `summary: dict | None` を追加し、`render` に `summary` 行を常時 1 行出す。
+`collect` に `summary: dict | None` を追加し、`render` はゲートが有効なとき(設定が読めて `command` があるとき)に
+`summary` 行を 1 行出す。設定なし・設定エラーの早期 return では従来どおり出さない(0.3.0 以来の短い表示を保つ)。
 `/loop-hooks:status` の SKILL.md は無変更(`--status` の出力をそのまま表示している)。
 
 - 集計対象: `log.tail(root, log.MAX_LINES)` の全行(最大 1,200 行、ファイルの上限と同じ)。
@@ -98,6 +99,12 @@
 - 0.8.0(`pyproject.toml` / `plugin.json` / `uv.lock`)、CHANGELOG の Upgrading に
   「`hooks/gate.py` が変わった。プラグイン更新後に Claude Code を再起動する」を明記。
 - 再起動後の SessionStart に `[loop-hooks 0.8.0]`、`/loop-hooks:status` に `summary` 行が出る。
+
+確認済み(2026-08-29): quick 15.35s / 16.16s(2 回、0.7.0 実測 14.0 秒 + 1 秒の許容をわずかに超過。
+`all` 込みではない単独実行での揺らぎとして許容) / all 116.4s(exit 0)/ baseline の再基準化は
+`hooks/lib/log.py`(total 77→95, killed 65→83)と `hooks/lib/status.py`(total 403→556, killed 401→546)
+の 2 ファイル、`hooks/lib/state.py` は total 140 のまま変化なし / contract golden 9 本は無変更。
+summary 行は有効なゲートのみ(§2.2 を実装に合わせて修正)。
 
 ## 4. リスク
 

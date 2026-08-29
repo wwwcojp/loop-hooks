@@ -35,5 +35,5 @@ Claude Code のフックプラグイン。ターン終了時にリポジトリ�
 - 検証一式(mutation 込み): `uv run python scripts/verify.py all` = quick + properties(hypothesis 300 例)+ mutation(全体で約 1.5〜3 分。コミット前・フェーズ完了時に回す)。
   mutation 中は hypothesis を 5 例に自動で絞る(`MUTANT_UNDER_TEST`)。
   `tests/mutation-baseline.json` はランナーだけが上げる(total が変わると再基準化される)。手で下げない。`mutants/` は作業領域で触らない
-- 状態の確認: `/loop-hooks:status`(ターミナルなら `uv run hooks/gate.py --status .`。どちらも `records` 行に読んだ置き場が出る)
+- 状態の確認: `/loop-hooks:status`(ターミナルなら `uv run hooks/gate.py --status .`。どちらも `records` 行に読んだ置き場が出る)。`summary` 行にログ全体の集計(ran / pass / fail / warn / skipped と所要時間の中央値、30 秒超なら警告)が出る
 - 実ホームパスをソース・コミットメッセージに書かない(CI が落ちる)。プレースホルダーは `/home/USER`
