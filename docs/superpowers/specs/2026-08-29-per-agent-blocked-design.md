@@ -139,4 +139,5 @@ scope 数)にする。`state.read_blocked_scopes(root, fingerprint) -> int` を 
 | 他エージェントの未コミット編集が原因の失敗でも、各 subagent が 1 回ずつブロックされる | 規則の意図どおり(本人が 1 回はフィードバックを見る)。2 回目は `stop_hook_active` または同 scope の記録で warn に倒れるので閉じ込めない |
 | 並行書込で記録が 1 件失われる | 影響は「最悪もう 1 回ブロック」。原子書込で torn file は防ぐ |
 | 旧版プラグインとの混在 | 旧版は dict を `None` と読み、新版は str を `None` と読む。どちらも「未ブロック」に倒れるだけ |
+| TeammateIdle のループ防止が `teammate_name` の安定性に依存する | 名前が途中で変わると同じ状態でもう 1 回ブロックされるだけ(閉じ込めない)。0.11.1 で明記 |
 | gate.py 変更の再起動忘れ | CHANGELOG と SessionStart の version 表示で確認(CLAUDE.md 4 項) |
