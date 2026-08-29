@@ -89,12 +89,6 @@ _patterns = st.lists(
     ),
     max_size=4,
 )
-# P2b は「watch のどれにも一致しない」を assume するため、全一致する "*" が高頻度だと
-# filter_too_much になる(pre-flight で確認済み)。"*" を候補から外して健全性を保つ。
-_patterns_no_wildcard = st.lists(
-    st.one_of(_segment, _segment.map(lambda s: f"*.{s}"), _segment.map(lambda s: f"{s}/*")),
-    max_size=4,
-)
 
 
 @settings(deadline=None)
@@ -105,19 +99,30 @@ def test_P2a_ignoreに一致すればwatchに関係なくFalse(rel: str, watch: 
     assert isinstance(result, bool) and result is False
 
 
+# P2b / P2c は patterns 自身をオラクルにせず、`*.<ext>` 形の watch/ignore と拡張子集合で
+# 期待値を独立に計算する(0.11.1)。
+_exts = st.from_regex(r"[a-z0-9]{1,4}", fullmatch=True)
+_ext_patterns = st.lists(_exts.map(lambda e: f"*.{e}"), max_size=4)
+
+
+def _ext_of(rel: str) -> str:
+    base = rel.rsplit("/", 1)[-1]
+    return base.rsplit(".", 1)[-1] if "." in base[1:] else ""
+
+
 @settings(deadline=None)
-@given(rel=_rel_paths, watch=_patterns_no_wildcard)
+@given(rel=_rel_paths, watch=_ext_patterns)
 def test_P2b_watchのどれにも一致しなければFalse(rel: str, watch: list[str]):
-    assume(not patterns.matches(rel, watch))
+    assume(_ext_of(rel) not in {p[2:] for p in watch})
     assert fingerprint.is_watched(rel, {"watch": watch, "ignore": []}) is False
 
 
 @settings(deadline=None)
-@given(rel=_rel_paths, watch=_patterns, ignore=_patterns)
+@given(rel=_rel_paths, watch=_ext_patterns, ignore=_ext_patterns)
 def test_P2c_watchにrel自身がありignoreに一致しなければTrue(
     rel: str, watch: list[str], ignore: list[str]
 ):
-    assume(not patterns.matches(rel, ignore))
+    assume(_ext_of(rel) not in {p[2:] for p in ignore})
     assert fingerprint.is_watched(rel, {"watch": watch + [rel], "ignore": ignore}) is True
 
 
