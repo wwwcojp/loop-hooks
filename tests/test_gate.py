@@ -371,6 +371,70 @@ def test_TeammateIdleは状態が変わればまたブロックする(tmp_path):
     assert blocked(gate.handle(event))
 
 
+# --- 0.9.0: ブロック記録はエージェント単位 ---
+
+
+def test_別のsubagentは同じ状態でもブロックされる(tmp_path):
+    """規則の根拠は「フィードバックを受けた本人が何も直していない」こと。
+    別の subagent はフィードバックを見ていないので 1 回はブロックする。"""
+    base = subagent(setup_repo(tmp_path, "false"))
+    a = {**base, "session_id": "s1", "agent_id": "a1"}
+    b = {**base, "session_id": "s1", "agent_id": "a2"}
+    assert blocked(gate.handle(a))
+    assert blocked(gate.handle(b))  # 0.8.0 までは warn で素通りしていた
+    out = gate.handle(a)
+    assert blocked(out) is None and "systemMessage" in out  # a 本人は warn
+
+
+def test_別セッションのStopは同じ状態でもブロックされる(tmp_path):
+    base = setup_repo(tmp_path, "false")
+    assert blocked(gate.handle({**base, "session_id": "s1"}))
+    assert blocked(gate.handle({**base, "session_id": "s2"}))
+    out = gate.handle({**base, "session_id": "s1"})
+    assert blocked(out) is None and "systemMessage" in out
+
+
+def test_同じセッションのStopは同じスコープ(tmp_path):
+    base = setup_repo(tmp_path, "false")
+    assert blocked(gate.handle({**base, "session_id": "s1"}))
+    out = gate.handle({**base, "session_id": "s1", "agent_id": "ignored-on-stop"})
+    assert blocked(out) is None and "systemMessage" in out
+
+
+def test_session_idが無ければmanualスコープで従来どおり(tmp_path):
+    event = setup_repo(tmp_path, "false")
+    assert blocked(gate.handle(event))
+    assert state.read_blocked(str(tmp_path), state.MANUAL_SCOPE) is not None
+    out = gate.handle(event)
+    assert blocked(out) is None and "systemMessage" in out
+
+
+def test_passで全スコープのブロック記録が消える(tmp_path):
+    marker = tmp_path / "ok"
+    base = setup_repo(tmp_path, f"test -e {marker}")
+    a = {**base, "session_id": "s1"}
+    b = {**base, "session_id": "s2"}
+    assert blocked(gate.handle(a)) and blocked(gate.handle(b))
+    marker.write_text("", encoding="utf-8")
+    assert gate.handle(a) is None  # pass
+    assert state.read_blocked(str(tmp_path), "s1") is None
+    assert state.read_blocked(str(tmp_path), "s2") is None
+
+
+def test_スコープ文字列はログと出力に出ない(tmp_path):
+    base = setup_repo(tmp_path, "false")
+    event = {
+        **base,
+        "session_id": "SESSION-XYZ",
+        "agent_id": "AGENT-XYZ",
+        "hook_event_name": "SubagentStop",
+    }
+    out = gate.handle(event)
+    assert "SESSION-XYZ" not in json.dumps(out) and "AGENT-XYZ" not in json.dumps(out)
+    rec = log.tail(str(tmp_path), 1)[0]
+    assert "SESSION-XYZ" not in json.dumps(rec) and "AGENT-XYZ" not in json.dumps(rec)
+
+
 # --- gate.on による絞り込み ---
 
 
