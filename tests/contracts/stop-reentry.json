@@ -1,7 +1,7 @@
 {
   "reference": "https://code.claude.com/docs/en/hooks",
-  "checked": "2026-08-27",
-  "input": {"hook_event_name": "Stop", "cwd": "<CWD>", "stop_hook_active": true},
+  "checked": "2026-08-29",
+  "input": {"hook_event_name": "Stop", "cwd": "<CWD>", "session_id": "<SESSION>", "stop_hook_active": true},
   "output": {
     "systemMessage": "[loop-hooks] gate failed again; letting this turn end unverified:\n$ <COMMAND>\n<OUTPUT>"
   },

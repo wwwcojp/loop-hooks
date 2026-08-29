@@ -1,7 +1,7 @@
 {
   "reference": "https://code.claude.com/docs/en/hooks",
-  "checked": "2026-08-27",
-  "input": {"hook_event_name": "SessionStart", "cwd": "<CWD>", "source": "startup"},
+  "checked": "2026-08-29",
+  "input": {"hook_event_name": "SessionStart", "cwd": "<CWD>", "session_id": "<SESSION>", "source": "startup"},
   "output": {
     "systemMessage": "[loop-hooks] gate disabled: not a git repository (<CWD>). loop-hooks uses git to detect changes."
   },

@@ -1,7 +1,7 @@
 {
   "reference": "https://code.claude.com/docs/en/hooks",
-  "checked": "2026-08-27",
-  "input": {"hook_event_name": "SubagentStop", "cwd": "<CWD>", "stop_hook_active": false},
+  "checked": "2026-08-29",
+  "input": {"hook_event_name": "SubagentStop", "cwd": "<CWD>", "stop_hook_active": false, "session_id": "<SESSION>", "agent_id": "agent-test", "agent_type": "general-purpose"},
   "output": {
     "hookSpecificOutput": {
       "hookEventName": "SubagentStop",

@@ -1,7 +1,7 @@
 """Claude Code とのフック入出力契約(第 5 段階 spec §2.2)。
 
-tests/contracts/*.json がゴールデン。可変部分(<CWD> / <COMMAND> / <VERSION> / <OUTPUT>)を
-正規化したうえで、入口の出力と辞書ごと完全一致することを検査する。
+tests/contracts/*.json がゴールデン。可変部分(<CWD> / <SESSION> / <COMMAND> / <VERSION> / <OUTPUT>)
+を正規化したうえで、入口の出力と辞書ごと完全一致することを検査する。
 
 契約が変わったら(Claude Code 側のキー名・形、または入口の文言)、ゴールデンを手で直し、
 `checked` を更新する。自動で書き戻す仕組みは意図的に作らない。
@@ -21,7 +21,7 @@ from hooks.lib import config, log  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACTS = ROOT / "tests" / "contracts"
-PLACEHOLDERS = ("<CWD>", "<COMMAND>", "<VERSION>", "<OUTPUT>")
+PLACEHOLDERS = ("<CWD>", "<SESSION>", "<COMMAND>", "<VERSION>", "<OUTPUT>")
 GATE = {
     "on": ["stop", "subagent_stop", "teammate_idle"],
     "watch": ["*.ts"],
@@ -82,7 +82,7 @@ def fill(value: Any, ctx: dict[str, str]) -> Any:
     if isinstance(value, dict):
         return {k: fill(v, ctx) for k, v in value.items()}
     if isinstance(value, str):
-        return value.replace("<CWD>", ctx["cwd"])
+        return value.replace("<CWD>", ctx["cwd"]).replace("<SESSION>", "session-test")
     return value
 
 
@@ -132,6 +132,11 @@ def test_ゴールデンが揃っている(name):
     assert set(golden) == {"reference", "checked", "input", "output", "exit_code", "stderr"}, name
     assert golden["reference"].startswith("https://") and len(golden["checked"]) == 10, name
     assert golden["input"]["cwd"] == "<CWD>"
+    assert golden["input"]["session_id"] == "<SESSION>", name
+    if golden["input"]["hook_event_name"] == "SubagentStop":
+        assert "agent_id" in golden["input"], name
+    if golden["input"]["hook_event_name"] == "TeammateIdle":
+        assert {"teammate_name", "team_name"} <= set(golden["input"]), name
 
 
 @pytest.mark.parametrize("name", sorted(CASES))
