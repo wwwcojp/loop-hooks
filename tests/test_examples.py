@@ -1,0 +1,131 @@
+"""examples/ の同梱物のテスト(0.10.0)。
+
+examples/verify.py は利用者が scripts/ にコピーして使うテンプレート。ここでは一時ディレクトリの
+scripts/verify.py にコピーし、STAGES を差し替えて subprocess で実行し、
+出力形式と終了コードを固定する。
+"""
+
+import re
+import shlex
+import subprocess
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+TEMPLATE = REPO_ROOT / "examples" / "verify.py"
+MARKER_RE = re.compile(r"# --- STAGES BEGIN ---\n.*?# --- STAGES END ---\n", re.S)
+
+
+def _run_template(tmp_path: Path, stages_src: str, *args: str) -> subprocess.CompletedProcess[str]:
+    """テンプレートを tmp_path/scripts/verify.py に置き、
+    STAGES を stages_src に差し替えて実行する。"""
+    src = TEMPLATE.read_text(encoding="utf-8")
+    assert MARKER_RE.search(src), "テンプレートに STAGES BEGIN/END マーカーが無い"
+    src = MARKER_RE.sub("# --- STAGES BEGIN ---\n" + stages_src + "# --- STAGES END ---\n", src)
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    (scripts / "verify.py").write_text(src, encoding="utf-8")
+    return subprocess.run(  # noqa: S603 -- argv は固定
+        [sys.executable, str(scripts / "verify.py"), *args],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+
+OK_STAGES = (
+    "STAGES: dict[str, list[Check]] = {\n"
+    '    "quick": [Check("a", ["true"]), Check("b", ["true"])],\n'
+    '    "slow": [Check("c", ["true"])],\n'
+    "}\n"
+)
+
+
+def test_全部通ればexit0でokが並ぶ(tmp_path):
+    r = _run_template(tmp_path, OK_STAGES, "quick")
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert r.stdout.splitlines() == ["[verify] a: ok", "[verify] b: ok"]
+
+
+def test_失敗したらexit1でFAIL行が出て後続は走らない(tmp_path):
+    marker = tmp_path / "ran-c"
+    stages = (
+        "STAGES: dict[str, list[Check]] = {\n"
+        '    "quick": [Check("a", ["true"]), Check("b", ["false"]), Check("c", ["touch", '
+        + repr(str(marker))
+        + "])],\n"
+        "}\n"
+    )
+    r = _run_template(tmp_path, stages, "quick")
+    assert r.returncode == 1
+    lines = r.stdout.splitlines()
+    assert lines[0] == "[verify] a: ok"
+    assert lines[1] == "[verify] b: FAIL (exit 1)"
+    assert not marker.exists()
+
+
+def test_失敗時は出力の末尾が続く(tmp_path):
+    stages = (
+        "STAGES: dict[str, list[Check]] = {\n"
+        '    "quick": [Check("a", ["sh", "-c", "echo DETAIL_LINE; exit 3"])],\n'
+        "}\n"
+    )
+    r = _run_template(tmp_path, stages, "quick")
+    assert r.returncode == 1
+    assert "[verify] a: FAIL (exit 3)" in r.stdout
+    assert "DETAIL_LINE" in r.stdout
+
+
+def test_コマンドが無ければcommand_not_found(tmp_path):
+    stages = (
+        "STAGES: dict[str, list[Check]] = {\n"
+        '    "quick": [Check("a", ["no-such-command-loop-hooks"])],\n'
+        "}\n"
+    )
+    r = _run_template(tmp_path, stages, "quick")
+    assert r.returncode == 1
+    assert "[verify] a: FAIL (command not found: no-such-command-loop-hooks)" in r.stdout
+
+
+def test_allは全stageを定義順に走らせる(tmp_path):
+    r = _run_template(tmp_path, OK_STAGES, "all")
+    assert r.returncode == 0
+    assert r.stdout.splitlines() == ["[verify] a: ok", "[verify] b: ok", "[verify] c: ok"]
+
+
+def test_未知のstageはexit2(tmp_path):
+    r = _run_template(tmp_path, OK_STAGES, "nope")
+    assert r.returncode == 2
+    assert "unknown stage: nope (known: quick, slow, all)" in r.stderr
+
+
+def test_print_ciはcheckごとに1行(tmp_path):
+    r = _run_template(tmp_path, OK_STAGES, "--print-ci", "quick")
+    assert r.returncode == 0
+    assert r.stdout.splitlines() == [shlex.join(["true"]), shlex.join(["true"])]
+    r = _run_template(tmp_path, OK_STAGES, "--print-ci")
+    assert r.stdout.splitlines() == ["true", "true", "true"]
+
+
+def test_テンプレートは同梱のSTAGESでヘルプが出る():
+    r = subprocess.run(  # noqa: S603
+        [sys.executable, str(TEMPLATE), "--help"], capture_output=True, text=True, timeout=60
+    )
+    assert r.returncode == 0
+    assert "quick" in r.stdout and "--print-ci" in r.stdout
+
+
+def test_テンプレートは200行以内でstdlibのみ():
+    src = TEMPLATE.read_text(encoding="utf-8")
+    assert len(src.splitlines()) <= 200
+    imports = re.findall(r"^(?:from|import)\s+([A-Za-z_][A-Za-z0-9_.]*)", src, re.M)
+    assert set(imports) <= {
+        "argparse",
+        "dataclasses",
+        "pathlib",
+        "shlex",
+        "subprocess",
+        "sys",
+        "__future__",
+    }

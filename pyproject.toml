@@ -16,8 +16,8 @@ dev = [
 ]
 
 [tool.pyright]
-include = ["hooks", "scripts"]
-strict = ["hooks", "scripts"]
+include = ["hooks", "scripts", "examples"]
+strict = ["hooks", "scripts", "examples"]
 pythonVersion = "3.10"
 exclude = ["mutants", ".hypothesis"]
 

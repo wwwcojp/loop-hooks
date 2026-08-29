@@ -132,7 +132,17 @@ def test_quickにformatチェックがある():
     names = [c.name for c in verify.STAGES["quick"]]
     assert names.index("format") == names.index("lint") + 1
     fmt = next(c for c in verify.STAGES["quick"] if c.name == "format")
-    assert fmt.cmd == ["uv", "run", "ruff", "format", "--check", "hooks", "tests", "scripts"]
+    assert fmt.cmd == [
+        "uv",
+        "run",
+        "ruff",
+        "format",
+        "--check",
+        "hooks",
+        "tests",
+        "scripts",
+        "examples",
+    ]
 
 
 def test_全チェックが成功すればTrue(tmp_path):
