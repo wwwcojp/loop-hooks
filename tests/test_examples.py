@@ -88,6 +88,13 @@ def test_コマンドが無ければcommand_not_found(tmp_path):
     assert "[verify] a: FAIL (command not found: no-such-command-loop-hooks)" in r.stdout
 
 
+def test_空のコマンドはFAILになる(tmp_path):
+    stages = 'STAGES: dict[str, list[Check]] = {\n    "quick": [Check("a", [])],\n}\n'
+    r = _run_template(tmp_path, stages, "quick")
+    assert r.returncode == 1
+    assert "[verify] a: FAIL (empty command)" in r.stdout
+
+
 def test_allは全stageを定義順に走らせる(tmp_path):
     r = _run_template(tmp_path, OK_STAGES, "all")
     assert r.returncode == 0
@@ -105,7 +112,19 @@ def test_print_ciはcheckごとに1行(tmp_path):
     assert r.returncode == 0
     assert r.stdout.splitlines() == [shlex.join(["true"]), shlex.join(["true"])]
     r = _run_template(tmp_path, OK_STAGES, "--print-ci")
+    assert r.returncode == 0
     assert r.stdout.splitlines() == ["true", "true", "true"]
+
+
+def test_print_ciは引数をshellクオートする(tmp_path):
+    stages = (
+        "STAGES: dict[str, list[Check]] = {\n"
+        '    "quick": [Check("a", ["echo", "hello world"])],\n'
+        "}\n"
+    )
+    r = _run_template(tmp_path, stages, "--print-ci", "quick")
+    assert r.returncode == 0
+    assert r.stdout.splitlines() == ["echo 'hello world'"]
 
 
 def test_テンプレートは同梱のSTAGESでヘルプが出る():

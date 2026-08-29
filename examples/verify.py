@@ -67,6 +67,8 @@ def shell_line(check: Check) -> str:
 
 
 def run_check(check: Check) -> tuple[bool, str]:
+    if not check.cmd:
+        return False, "FAIL (empty command)"
     try:
         r = subprocess.run(  # noqa: S603 -- argv is fixed in STAGES
             check.cmd,
@@ -87,7 +89,7 @@ def run_check(check: Check) -> tuple[bool, str]:
     return False, f"FAIL (exit {r.returncode})\n{output[-FAIL_OUTPUT_TAIL:]}"
 
 
-def run_stage(name: str, checks: list[Check]) -> bool:
+def run_stage(checks: list[Check]) -> bool:
     for check in checks:
         ok, detail = run_check(check)
         print(f"[verify] {check.name}: {detail}", flush=True)
@@ -107,25 +109,23 @@ def stages_for(name: str) -> list[tuple[str, list[Check]]] | None:
 def main(argv: list[str]) -> int:
     known = ", ".join([*STAGES, "all"])
     parser = argparse.ArgumentParser(description=f"Run a verification stage ({known}).")
-    parser.add_argument("stage", nargs="?", default="quick", help=f"one of: {known}")
+    parser.add_argument("stage", nargs="?", default=None, help=f"one of: {known} (default: quick)")
     parser.add_argument(
         "--print-ci", action="store_true", help="print the CI `run:` line for each check and exit"
     )
     args = parser.parse_args(argv)
-    if args.print_ci and len(argv) == 1:
-        selected = list(STAGES.items())  # --print-ci without a stage: every stage
-    else:
-        selected = stages_for(args.stage)
+    stage = args.stage or ("all" if args.print_ci else "quick")
+    selected = stages_for(stage)
     if selected is None:
-        print(f"unknown stage: {args.stage} (known: {known})", file=sys.stderr)
+        print(f"unknown stage: {stage} (known: {known})", file=sys.stderr)
         return 2
     if args.print_ci:
         for _, checks in selected:
             for check in checks:
                 print(shell_line(check))
         return 0
-    for name, checks in selected:
-        if not run_stage(name, checks):
+    for _, checks in selected:
+        if not run_stage(checks):
             return 1
     return 0
 
