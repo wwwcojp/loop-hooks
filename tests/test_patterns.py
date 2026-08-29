@@ -82,7 +82,6 @@ def test_不正なパターンでも例外を出さない():
         assert isinstance(patterns.matches("a/b", [bad]), bool), bad
 
 
-@pytest.mark.xfail(strict=True, reason="Task 2 で既定 ignore を更新")
 def test_既定のignoreは依存ディレクトリとドキュメントを除きソースを残す():
     from hooks.lib import config
 

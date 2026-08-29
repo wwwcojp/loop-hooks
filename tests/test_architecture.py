@@ -22,7 +22,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from hooks import gate  # noqa: E402
-from hooks.lib import config, fingerprint, log, state, status  # noqa: E402
+from hooks.lib import config, fingerprint, log, patterns, state, status  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 ENTRIES = ("gate.py", "session_start.py")
@@ -344,6 +344,11 @@ def test_存在しないディレクトリでも例外を出さない(tmp_path):
     assert fingerprint.repo_root(missing) is None
     assert config.load(missing) is None
     assert set(status.collect(missing)) == INFO_KEYS
+
+
+def test_patternsは壊れたパターンでも例外を出さない():
+    for bad in (["["], ["**"], ["!"], [""], ["\\"], ["[", "**", "!", ""]):
+        assert isinstance(patterns.matches("a/b", bad), bool), bad
 
 
 def test_plugin_jsonが壊れていてもplugin_versionはNone(tmp_path, monkeypatch):

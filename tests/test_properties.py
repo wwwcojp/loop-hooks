@@ -5,7 +5,6 @@
 例ごとに一意な root を使い、autouse の CLAUDE_PLUGIN_DATA 隔離の中で状態が衝突しないようにする。
 """
 
-import fnmatch
 import json
 import subprocess
 import sys
@@ -18,7 +17,7 @@ from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from hooks.lib import config, fingerprint, log, state  # noqa: E402
+from hooks.lib import config, fingerprint, log, patterns, state  # noqa: E402
 
 
 def _root() -> str:
@@ -109,7 +108,7 @@ def test_P2a_ignoreに一致すればwatchに関係なくFalse(rel: str, watch: 
 @settings(deadline=None)
 @given(rel=_rel_paths, watch=_patterns_no_wildcard)
 def test_P2b_watchのどれにも一致しなければFalse(rel: str, watch: list[str]):
-    assume(not any(fnmatch.fnmatch(rel, p) for p in watch))
+    assume(not patterns.matches(rel, watch))
     assert fingerprint.is_watched(rel, {"watch": watch, "ignore": []}) is False
 
 
@@ -118,8 +117,15 @@ def test_P2b_watchのどれにも一致しなければFalse(rel: str, watch: lis
 def test_P2c_watchにrel自身がありignoreに一致しなければTrue(
     rel: str, watch: list[str], ignore: list[str]
 ):
-    assume(not any(fnmatch.fnmatch(rel, p) for p in ignore))
+    assume(not patterns.matches(rel, ignore))
     assert fingerprint.is_watched(rel, {"watch": watch + [rel], "ignore": ignore}) is True
+
+
+@settings(deadline=None)
+@given(rel=_rel_paths, watch=_patterns)
+def test_P2d_否定を末尾に足すと一致が取り消される(rel: str, watch: list[str]):
+    assert patterns.matches(rel, watch + [rel]) is True
+    assert patterns.matches(rel, watch + [rel, "!" + rel]) is False
 
 
 # ---- P4: log.tail は任意のバイト列で例外を出さず、list[dict] を n 件以下で返す ----

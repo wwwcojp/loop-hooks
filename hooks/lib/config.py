@@ -25,15 +25,13 @@ GATE_DEFAULTS: dict[str, Any] = {
     # watch を書き忘れたときにゲートが無言で掛からなくなる。
     "watch": ["*"],
     "ignore": [
-        "node_modules/*",
-        "*/node_modules/*",
-        ".venv/*",
-        "*/.venv/*",
-        "dist/*",
-        "build/*",
-        "target/*",
-        ".claude/*",
-        ".loop/*",
+        "node_modules/",
+        ".venv/",
+        "dist/",
+        "build/",
+        "target/",
+        ".claude/",
+        ".loop/",
         "*.md",
     ],
 }

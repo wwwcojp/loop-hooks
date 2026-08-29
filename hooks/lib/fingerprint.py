@@ -4,11 +4,12 @@
 フォーマッタ)に依存せず判定するための土台。
 """
 
-import fnmatch
 import hashlib
 import subprocess
 from pathlib import Path
 from typing import Any
+
+from hooks.lib import patterns
 
 GIT_TIMEOUT_SEC = 30
 
@@ -39,10 +40,10 @@ def head_file(root: str, rel: str) -> bytes | None:
 
 
 def is_watched(rel: str, gate_cfg: dict[str, Any]) -> bool:
-    """リポジトリ相対パスがゲート対象か。ignore は watch より優先。"""
-    if any(fnmatch.fnmatch(rel, p) for p in gate_cfg["ignore"]):
+    """リポジトリ相対パスがゲート対象か。gitignore 風のマッチで、ignore は watch より優先。"""
+    if patterns.matches(rel, gate_cfg["ignore"]):
         return False
-    return any(fnmatch.fnmatch(rel, p) for p in gate_cfg["watch"])
+    return patterns.matches(rel, gate_cfg["watch"])
 
 
 def _changed_paths(root: str) -> list[bytes] | None:

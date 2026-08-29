@@ -275,22 +275,19 @@ def test_watchの既定は全ファイル(tmp_path):
     assert config.load(cwd)["gate"]["watch"] == ["*"]
 
 
-def test_ignoreの既定に依存ディレクトリとドキュメントが含まれる(tmp_path):
+def test_ignoreの既定はgitignore風で依存ディレクトリとドキュメントを除く(tmp_path):
     cwd = write(tmp_path, {"gate": {"command": "echo ok"}})
     ignore = config.load(cwd)["gate"]["ignore"]
-    for pat in (
-        "node_modules/*",
-        "*/node_modules/*",
-        ".venv/*",
-        "*/.venv/*",
-        "dist/*",
-        "build/*",
-        "target/*",
-        ".claude/*",
-        ".loop/*",
+    assert ignore == [
+        "node_modules/",
+        ".venv/",
+        "dist/",
+        "build/",
+        "target/",
+        ".claude/",
+        ".loop/",
         "*.md",
-    ):
-        assert pat in ignore, pat
+    ]
 
 
 def test_HEADから読んだ設定は_sourceがHEAD(tmp_path):
