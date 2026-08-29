@@ -10,7 +10,8 @@ and prints one line per check (`[verify] lint: ok` / `[verify] tests: FAIL (exit
 loop-hooks records the first `FAIL` line as the failure reason in `--status`.
 
 1. Copy `examples/verify.py` to `scripts/verify.py` in your repository (the
-   runner resolves the repository root as the parent of `scripts/`).
+   runner resolves the repository root as the parent of `scripts/`, and exits with
+   code 2 if it is run from anywhere else).
 2. Edit the `STAGES` table at the top: keep `quick` under about 30 seconds
    (the `--status` summary warns beyond that budget), move slower checks to
    `slow`. Keep `CHECK_TIMEOUT_SEC` in the runner below `gate.timeout_sec` in

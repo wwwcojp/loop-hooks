@@ -22,13 +22,22 @@ TEMPLATE = REPO_ROOT / "examples" / "verify.py"
 MARKER_RE = re.compile(r"# --- STAGES BEGIN ---\n.*?# --- STAGES END ---\n", re.S)
 
 
-def _run_template(tmp_path: Path, stages_src: str, *args: str) -> subprocess.CompletedProcess[str]:
-    """テンプレートを tmp_path/scripts/verify.py に置き、
-    STAGES を stages_src に差し替えて実行する。"""
+def _run_template(
+    tmp_path: Path,
+    stages_src: str,
+    *args: str,
+    timeout_sec: int | None = None,
+    subdir: str = "scripts",
+) -> subprocess.CompletedProcess[str]:
+    """テンプレートを tmp_path/<subdir>/verify.py に置き、
+    STAGES を stages_src に差し替えて実行する。timeout_sec で CHECK_TIMEOUT_SEC を上書きできる。"""
     src = TEMPLATE.read_text(encoding="utf-8")
     assert MARKER_RE.search(src), "テンプレートに STAGES BEGIN/END マーカーが無い"
     src = MARKER_RE.sub("# --- STAGES BEGIN ---\n" + stages_src + "# --- STAGES END ---\n", src)
-    scripts = tmp_path / "scripts"
+    if timeout_sec is not None:
+        assert "CHECK_TIMEOUT_SEC = 600\n" in src
+        src = src.replace("CHECK_TIMEOUT_SEC = 600\n", f"CHECK_TIMEOUT_SEC = {timeout_sec}\n")
+    scripts = tmp_path / subdir
     scripts.mkdir(exist_ok=True)
     (scripts / "verify.py").write_text(src, encoding="utf-8")
     return subprocess.run(  # noqa: S603 -- argv は固定
@@ -92,6 +101,25 @@ def test_コマンドが無ければcommand_not_found(tmp_path):
     r = _run_template(tmp_path, stages, "quick")
     assert r.returncode == 1
     assert "[verify] a: FAIL (command not found: no-such-command-loop-hooks)" in r.stdout
+
+
+def test_タイムアウトしたらFAILにtimeoutが出る(tmp_path):
+    stages = (
+        "STAGES: dict[str, list[Check]] = {\n"
+        '    "quick": [Check("a", ["sleep", "5"]), Check("b", ["true"])],\n'
+        "}\n"
+    )
+    r = _run_template(tmp_path, stages, "quick", timeout_sec=1)
+    assert r.returncode == 1
+    assert "[verify] a: FAIL (timeout after 1s)" in r.stdout
+    assert "[verify] b:" not in r.stdout
+
+
+def test_scripts以外に置くとexit2で案内が出る(tmp_path):
+    r = _run_template(tmp_path, OK_STAGES, "quick", subdir="tools")
+    assert r.returncode == 2
+    assert "verify.py must live in <repo>/scripts/" in r.stderr
+    assert "[verify]" not in r.stdout
 
 
 def test_空のコマンドはFAILになる(tmp_path):

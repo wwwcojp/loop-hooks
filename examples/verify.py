@@ -116,6 +116,10 @@ def main(argv: list[str]) -> int:
         "--print-ci", action="store_true", help="print the CI `run:` line for each check and exit"
     )
     args = parser.parse_args(argv)
+    here = Path(__file__).resolve().parent
+    if here.name != "scripts":  # REPO_ROOT is derived from this location; refuse to guess
+        print(f"verify.py must live in <repo>/scripts/ (found: {here})", file=sys.stderr)
+        return 2
     stage = args.stage if args.stage is not None else ("all" if args.print_ci else "quick")
     selected = stages_for(stage)
     if selected is None:
