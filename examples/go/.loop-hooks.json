@@ -1,0 +1,8 @@
+{
+  "gate": {
+    "command": "gofmt -l . | (! grep .) && go vet ./... && go test ./...",
+    "timeout_sec": 300,
+    "watch": ["*.go", "go.mod", "go.sum"],
+    "ignore": ["vendor/*"]
+  }
+}

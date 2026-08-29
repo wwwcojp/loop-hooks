@@ -7,9 +7,15 @@ scripts/verify.py にコピーし、STAGES を差し替えて subprocess で実�
 
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from hooks.lib import config  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE = REPO_ROOT / "examples" / "verify.py"
@@ -148,3 +154,34 @@ def test_テンプレートは200行以内でstdlibのみ():
         "sys",
         "__future__",
     }
+
+
+EXAMPLES = REPO_ROOT / "examples"
+EXPECTED_COMMANDS = {
+    "python-uv": "uv run python scripts/verify.py quick",
+    "node-bun": "bun run lint && bun test",
+    "rust-cargo": "cargo fmt --check && cargo clippy -q -- -D warnings && cargo test -q",
+    "go": "gofmt -l . | (! grep .) && go vet ./... && go test ./...",
+}
+
+
+def test_設定例は4つ():
+    dirs = sorted(p.name for p in EXAMPLES.iterdir() if (p / ".loop-hooks.json").is_file())
+    assert dirs == sorted(EXPECTED_COMMANDS)
+
+
+@pytest.mark.parametrize("stack", sorted(EXPECTED_COMMANDS))
+def test_設定例はconfigの検証を通る(stack, tmp_path):
+    # git リポジトリではない一時ディレクトリにコピーして作業ツリー版として読む(HEAD 優先を避ける)
+    shutil.copy(EXAMPLES / stack / ".loop-hooks.json", tmp_path / ".loop-hooks.json")
+    cfg = config.load(str(tmp_path))
+    assert cfg is not None and "_error" not in cfg, cfg
+    assert cfg["gate"]["command"] == EXPECTED_COMMANDS[stack]
+    assert cfg["gate"]["timeout_sec"] in (300, 600)
+    assert cfg["gate"]["watch"] and cfg["gate"]["ignore"]
+
+
+def test_READMEはexamplesへリンクする():
+    for name in ("README.md", "README.ja.md"):
+        assert "examples/README.md" in (REPO_ROOT / name).read_text(encoding="utf-8"), name
+    assert (EXAMPLES / "README.md").is_file()

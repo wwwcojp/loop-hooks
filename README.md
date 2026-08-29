@@ -182,7 +182,9 @@ with a one-time notice asking you to commit it.
 ## Pairings
 
 What the gate achieves depends on `gate.command`. These combinations have worked
-in practice.
+in practice. Ready-to-copy pieces — a standard-library verify runner template and
+`.loop-hooks.json` examples for Python, Node, Rust and Go — live in
+[`examples/README.md`](examples/README.md).
 
 ### TDD: enforce GREEN, leave RED to another hook
 

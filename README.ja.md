@@ -169,6 +169,8 @@ Claude Code の中から marketplace を登録してプラグインをインス�
 ## 組み合わせ
 
 ゲートの効果は `gate.command` の内容で決まる。運用上有効だった組み合わせを挙げる。
+そのまま使える verify runner のテンプレート(標準ライブラリのみ)と Python / Node / Rust / Go の
+`.loop-hooks.json` の例は [`examples/README.md`](examples/README.md) にある。
 
 ### TDD: GREEN を強制し、RED は別のフックに任せる
 

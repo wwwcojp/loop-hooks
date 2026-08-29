@@ -1,0 +1,8 @@
+{
+  "gate": {
+    "command": "cargo fmt --check && cargo clippy -q -- -D warnings && cargo test -q",
+    "timeout_sec": 600,
+    "watch": ["*.rs", "Cargo.toml", "Cargo.lock"],
+    "ignore": ["target/*"]
+  }
+}
